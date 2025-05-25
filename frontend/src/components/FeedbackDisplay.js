@@ -7,7 +7,6 @@ function FeedbackDisplay({ feedback, onNextQuestion, loading }) {
     return null;
   }
 
-  // Check if feedback is an object (our new JSON response)
   const isJsonFeedback = typeof feedback === 'object' && feedback !== null;
 
   return (
@@ -19,12 +18,34 @@ function FeedbackDisplay({ feedback, onNextQuestion, loading }) {
           {feedback.personal_feedback && <p><strong>Personal Feedback:</strong> {feedback.personal_feedback}</p>}
           {feedback.explanation_comparison && <p><strong>Explanation Comparison:</strong> {feedback.explanation_comparison}</p>}
           {feedback.common_misconceptions && <p><strong>Common Misconceptions:</strong> {feedback.common_misconceptions}</p>}
-          {feedback.correct_explanation_reiteration && <p><strong>Correct Explanation:</strong> {feedback.correct_explanation_reiteration}</p>}
-          {feedback.next_steps_suggestion && <p><strong>Next Steps:</strong> {feedback.next_steps_suggestion}</p>}
+
+          {/* --- MODIFIED RENDERING FOR ARRAYS --- */}
+          {feedback.correct_explanation_reiteration && feedback.correct_explanation_reiteration.length > 0 && (
+            <div>
+              <p><strong>Correct Explanation:</strong></p>
+              <ol> {/* Using ordered list for steps */}
+                {feedback.correct_explanation_reiteration.map((step, index) => (
+                  <li key={index}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {feedback.next_steps_suggestion && feedback.next_steps_suggestion.length > 0 && (
+            <div>
+              <p><strong>Next Steps:</strong></p>
+              <ul> {/* Using unordered list for suggestions */}
+                {feedback.next_steps_suggestion.map((suggestion, index) => (
+                  <li key={index}>{suggestion}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* --- END MODIFIED RENDERING --- */}
+
           {feedback.error && <p style={{color: 'red'}}><strong>Error from AI:</strong> {feedback.error} {feedback.details}</p>}
         </div>
       ) : (
-        // Fallback for old text-based feedback or AI parsing error
         <p>{feedback}</p>
       )}
 

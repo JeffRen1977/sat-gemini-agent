@@ -29,6 +29,26 @@ class GeminiService:
         return response.text
 
     def evaluate_and_explain(self, question, user_answer, correct_answer_info):
+        # Define an example JSON output to guide the model
+        EXAMPLE_JSON_OUTPUT = """
+        {
+          "is_correct": true,
+          "feedback_summary": "Correct! Great job on this problem.",
+          "personal_feedback": "You clearly understood the concept.",
+          "explanation_comparison": "Your steps align perfectly with the standard solution.",
+          "common_misconceptions": "Some students might misinterpret the wording.",
+          "correct_explanation_reiteration": [
+            "Step 1: Understand the core concept.",
+            "Step 2: Apply the formula.",
+            "Step 3: Calculate the result."
+          ],
+          "next_steps_suggestion": [
+            "Practice 5 more problems of this type.",
+            "Review related concepts in your textbook."
+          ]
+        }
+        """
+
         prompt = f"""
         You are an expert SAT tutor.
         Analyze the student's answer to the given SAT question.
@@ -42,21 +62,16 @@ class GeminiService:
         Correct Answer: {correct_answer_info['answer']}
         Detailed Explanation for Correct Answer: {correct_answer_info['explanation']}
 
-        Output should be a single JSON object with the following structure:
-        {{
-          "is_correct": boolean, // true if student's answer matches correct_answer_info['answer'] (case-insensitive, trimmed)
-          "feedback_summary": string, // A short summary of the feedback (e.g., "Correct! Great job on algebra." or "Incorrect, review system of equations.")
-          "personal_feedback": string, // Tailored encouraging feedback to the student based on their answer.
-          "explanation_comparison": string, // Compares student's approach (if discernible) to the correct explanation.
-          "common_misconceptions": string, // Explains common pitfalls related to this type of question.
-          "correct_explanation_reiteration": string, // Reiteration or simplification of the provided correct explanation for the student.
-          "next_steps_suggestion": string // Advice on what to study next based on their performance on this question.
-        }}
+        Output should be a single JSON object with the following structure.
+        For "correct_explanation_reiteration" and "next_steps_suggestion",
+        each distinct step or suggestion should be a separate string element in the array.
+
+        EXAMPLE_JSON_OUTPUT:
+        {EXAMPLE_JSON_OUTPUT}
 
         Ensure the output is valid JSON, enclosed in triple backticks, and contains only the JSON.
         """
         response = self.model.generate_content(prompt)
-        # Attempt to parse the JSON. Gemini often wraps JSON in backticks.
         text_response = response.text
         if text_response.startswith("```json") and text_response.endswith("```"):
             json_string = text_response[7:-3].strip()
@@ -71,7 +86,6 @@ class GeminiService:
             print(f"Raw Gemini response: {text_response}")
             # Fallback to a basic text response if JSON parsing fails
             return {"error": "Failed to parse AI response. Please try again.", "details": str(e), "raw_response": text_response}
-
 
     def generate_study_plan(self, user_performance_data):
         prompt = f"""
