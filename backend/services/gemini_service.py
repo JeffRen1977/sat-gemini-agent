@@ -10,23 +10,55 @@ class GeminiService:
         self.model = genai.GenerativeModel(model_name)
 
     def generate_sat_question(self, topic, difficulty="medium", question_type="multiple_choice"):
-        prompt = f"""
-        Generate a {difficulty} difficulty SAT-style {question_type} question on the topic of {topic}.
-        For multiple-choice questions, provide 4 options (A, B, C, D) and clearly indicate the correct answer.
-        For math questions, include necessary numbers and context.
-        For reading questions, provide a short passage and then the question.
-        Example format:
 
+        # Define a specific example for a reading question with clear delimiters
+        READING_QUESTION_EXAMPLE = """
+        ---BEGIN PASSAGE---
+        The phenomenon of bioluminescence, the production of light by living organisms, is widespread in nature, particularly in marine environments. From the twinkling plankton in the ocean's surface to the deep-sea anglerfish with its glowing lure, bioluminescence serves various ecological functions, including attracting prey, defending against predators, and even communicating with conspecifics. While the chemical reactions involved vary among species, they generally involve a light-emitting molecule (luciferin) and an enzyme (luciferase) that catalyzes the reaction, consuming oxygen and ATP to produce light. This cold light, emitting less than 20% heat, is remarkably efficient compared to incandescent bulbs, which lose most energy as heat. The evolutionary pressures that led to such diverse and efficient light-producing mechanisms highlight the adaptive power of natural selection in response to environmental challenges.
+        ---END PASSAGE---
+
+        Question: Based on the passage, which of the following is NOT a function of bioluminescence mentioned in the text?
+        A) Defense against predators
+        B) Navigation in dark environments
+        C) Attraction of prey
+        D) Communication with other organisms of the same species
+        Correct Answer: B  # <-- ADD THIS BACK
+        Explanation: The passage explicitly mentions "attracting prey, defending against predators, and even communicating with conspecifics" as ecological functions. Navigation is not mentioned. # <-- ADD THIS BACK
+        """
+
+        # Define the general example format, now WITH Correct Answer and Explanation
+        GENERAL_EXAMPLE_FORMAT = """
         Question: [Your question text here]
         A) Option A
         B) Option B
         C) Option C
         D) Option D
-        Correct Answer: [Correct option letter or value]
-        Explanation: [Detailed explanation]
+        Correct Answer: [Correct option letter or value] # <-- ADD THIS BACK
+        Explanation: [Detailed explanation] # <-- ADD THIS BACK
+        """
+
+        prompt = f"""
+        Generate a {difficulty} difficulty SAT-style {question_type} question on the topic of {topic}.
+
+        **IMPORTANT:**
+        - If the question_type is 'reading_comprehension', you MUST provide a short passage FIRST. The passage must be enclosed between '---BEGIN PASSAGE---' and '---END PASSAGE---'.
+        - Then, after the passage, provide the multiple-choice question, followed by options, correct answer, and explanation.
+        - For math questions, include necessary numbers and context.
+        - For multiple-choice questions, provide 4 options (A, B, C, D) and clearly indicate the correct answer.
+
+        EXAMPLE_FORMAT:
+        {GENERAL_EXAMPLE_FORMAT}
+
+        If the topic is 'reading comprehension' and question_type is 'multiple_choice',
+        adhere strictly to this example structure, including the specific delimiters for the passage:
+        {READING_QUESTION_EXAMPLE}
         """
         response = self.model.generate_content(prompt)
+
+        # We'll parse the full response to extract Correct Answer and Explanation in dataParser.js
+        # and these will be used for evaluation, but *not* displayed by QuestionDisplay.js
         return response.text
+
 
     def evaluate_and_explain(self, question, user_answer, correct_answer_info):
         # Define an example JSON output to guide the model

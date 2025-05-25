@@ -9,6 +9,15 @@ function QuestionDisplay({ questionData, userAnswer, onAnswerChange, onSubmitAns
 
   return (
     <div className="question-container">
+      {/* Display Passage if it exists */}
+      {questionData.passage && (
+        <div className="reading-passage">
+          <h3>Reading Passage:</h3>
+          <p>{questionData.passage}</p>
+          <hr />
+        </div>
+      )}
+
       <h3>Question:</h3>
       <p>{questionData.question}</p>
 
@@ -21,6 +30,12 @@ function QuestionDisplay({ questionData, userAnswer, onAnswerChange, onSubmitAns
           ))}
         </div>
       )}
+
+      {/* This is the crucial part: ENSURE NO RENDERING OF CORRECT ANSWER OR EXPLANATION HERE */}
+      {/* For example, remove any lines like: */}
+      {/* {questionData.correctAnswer && <p>Correct Answer: {questionData.correctAnswer}</p>} */}
+      {/* {questionData.explanation && <p>Explanation: {questionData.explanation}</p>} */}
+
 
       <div className="answer-input">
         <input
