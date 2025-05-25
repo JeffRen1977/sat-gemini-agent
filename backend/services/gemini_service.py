@@ -5,7 +5,18 @@ import json
 import base64 
 from io import BytesIO 
 from PIL import Image
+import pandas as pd # <--- IMPORT PANDAS
+import re # <--- ADD THIS IMPORT
 
+# Utility function to clean string before JSON parsing
+# This regex matches any characters that are not allowed in JSON strings
+# specifically, non-escaped control characters from U+0000 to U+001F (except tab, newline, carriage return)
+# It also handles common Unicode non-breaking spaces if they cause issues.
+_CLEAN_JSON_STRING_PATTERN = re.compile(r'[\x00-\x08\x0B\x0C\x0E-\x1F\u0080-\u009F]') # ASCII control chars + some extended controls
+
+def _clean_json_string(s):
+    """Removes invalid control characters and other problematic chars from a string for JSON parsing."""
+    return _CLEAN_JSON_STRING_PATTERN.sub('', s)
 
 class GeminiService:
     def __init__(self, api_key, text_model_name='models/gemini-2.5-flash-preview-05-20', vision_model_name='gemini-pro-vision'):
@@ -193,9 +204,17 @@ class GeminiService:
             Output should be a single JSON object with the following structure:
             {
               "ai_answer": string, // A concise direct answer (e.g., "The correct answer is C", "x=5", or "The function is linear").
-              "ai_solution": string, // The full step-by-step solution or detailed explanation.
+              "ai_solution": array of strings, // The full step-by-step solution or detailed explanation, with each step or distinct point as a separate string element in the array.
               "ai_confidence": string // Optional: "High", "Medium", "Low"
             }
+
+            EXAMPLE_SOLUTION_ARRAY:
+            [
+              "Step 1: Identify the variables and given information from the image.",
+              "Step 2: Formulate the equations or geometric properties.",
+              "Step 3: Solve the equations/apply principles step-by-step.",
+              "Step 4: State the final answer clearly."
+            ]
 
             Ensure the output is valid JSON, enclosed in triple backticks, and contains only the JSON.
             """
@@ -207,6 +226,10 @@ class GeminiService:
                 json_string = text_response[7:-3].strip()
             else:
                 json_string = text_response.strip()
+
+             # --- ADD THIS LINE TO CLEAN THE STRING ---
+            json_string = _clean_json_string(json_string)
+            # --- END ADDITION ---
 
             try:
                 return json.loads(json_string)

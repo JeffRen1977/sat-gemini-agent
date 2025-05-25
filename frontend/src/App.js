@@ -1,12 +1,12 @@
 // frontend/src/App.js
 
 import React, { useState, useEffect, useRef } from 'react';
-import { generateQuestion, evaluateAnswer, getStudyPlan, saveAttempt, getPerformanceSummary, uploadImageQuestion } from './services/api'; // <--- IMPORT uploadImageQuestion
+import { generateQuestion, evaluateAnswer, getStudyPlan, saveAttempt, getPerformanceSummary, uploadImageQuestion } from './services/api';
 import { parseQuestionText } from './utils/dataParser';
 import QuestionDisplay from './components/QuestionDisplay';
 import FeedbackDisplay from './components/FeedbackDisplay';
 import StudyPlanDisplay from './components/StudyPlanDisplay';
-import ImageQuestionDisplay from './components/ImageQuestionDisplay'; // <--- NEW COMPONENT IMPORT
+import ImageQuestionDisplay from './components/ImageQuestionDisplay';
 import './App.css';
 
 function App() {
@@ -22,12 +22,12 @@ function App() {
   const [startTime, setStartTime] = useState(null);
 
   // =========================================================
-  // NEW STATES FOR IMAGE UPLOAD
+  // MODIFIED STATES FOR IMAGE UPLOAD (now for multiple images)
   // =========================================================
-  const [selectedImage, setSelectedImage] = useState(null); // Stores the file object
-  const [imageDataUrl, setImageDataUrl] = useState(null); // Stores Base64 data URL
-  const [imageQuestionText, setImageQuestionText] = useState(''); // Text prompt for image
-  const [imageAnalysisResult, setImageAnalysisResult] = useState(null); // Result from Gemini Vision Pro
+  const [selectedImages, setSelectedImages] = useState([]); // Stores array of file objects
+  const [imageDataUrls, setImageDataUrls] = useState([]); // Stores array of Base64 data URLs
+  const [imageQuestionText, setImageQuestionText] = useState('');
+  const [imageAnalysisResults, setImageAnalysisResults] = useState([]); // Stores array of results for each image
   // =========================================================
 
   useEffect(() => {
@@ -39,9 +39,9 @@ function App() {
     setFeedback('');
     setStudyPlan('');
     setUserAnswer('');
-    setImageAnalysisResult(null); // <--- Clear image results when generating text question
-    setSelectedImage(null);
-    setImageDataUrl(null);
+    setImageAnalysisResults([]); // <--- Clear image results when generating text question
+    setSelectedImages([]); // <--- Clear selected images
+    setImageDataUrls([]); // <--- Clear image data URLs
     setImageQuestionText('');
 
     setStartTime(Date.now());
@@ -120,43 +120,62 @@ function App() {
   };
 
   // =========================================================
-  // NEW FUNCTIONS FOR IMAGE UPLOAD
+  // MODIFIED FUNCTIONS FOR IMAGE UPLOAD (now for multiple images)
   // =========================================================
   const handleImageChange = (event) => {
-    const file = event.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageDataUrl(reader.result); // Base64 data URL
-      };
-      reader.readAsDataURL(file); // Read file as Base64
-      setQuestionText(null); // Clear text question display
-      setParsedQuestion(null);
-      setFeedback(null);
-      setImageAnalysisResult(null); // Clear previous analysis results
-      setStudyPlan(null); // Clear study plan
-    } else {
-      alert("Please select an image file.");
-      setSelectedImage(null);
-      setImageDataUrl(null);
+    const files = Array.from(event.target.files); // Convert FileList to Array
+    if (files.length === 0) {
+        setSelectedImages([]);
+        setImageDataUrls([]);
+        return;
     }
+
+    setSelectedImages(files);
+    setImageDataUrls([]); // Clear previous URLs
+
+    // Clear text question display and analysis results
+    setQuestionText(null);
+    setParsedQuestion(null);
+    setFeedback(null);
+    setImageAnalysisResults([]);
+    setStudyPlan(null);
+
+    let loadedCount = 0;
+    const newImageDataUrls = [];
+
+    files.forEach((file) => {
+        if (!file.type.startsWith('image/')) {
+            alert(`File ${file.name} is not an image. Please select only image files.`);
+            // You might want to filter out non-images or stop processing here
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            newImageDataUrls.push(reader.result); // Add Base64 data URL
+            loadedCount++;
+            if (loadedCount === files.length) {
+                setImageDataUrls(newImageDataUrls);
+            }
+        };
+        reader.readAsDataURL(file); // Read file as Base64
+    });
   };
 
   const handleSubmitImageQuestion = async () => {
-    if (!imageDataUrl || !imageQuestionText) {
-      alert("Please upload an image and type your question.");
+    if (imageDataUrls.length === 0 || !imageQuestionText) {
+      alert("Please upload at least one image and type your question.");
       return;
     }
 
     setLoading(true);
     try {
-      const result = await uploadImageQuestion(imageDataUrl, imageQuestionText);
-      setImageAnalysisResult(result.aiResponse);
-      // No immediate feedback or study plan update for image questions in this flow
+      // Send an array of imageDataUrls to the backend
+      const result = await uploadImageQuestion(imageDataUrls, imageQuestionText);
+      setImageAnalysisResults(result.aiResponses); // Backend will return an array of responses
     } catch (error) {
       console.error("Error submitting image question:", error);
-      setImageAnalysisResult({ error: "Failed to analyze image question.", details: error.message });
+      setImageAnalysisResults([{ error: "Failed to analyze image question.", details: error.message }]);
     } finally {
       setLoading(false);
     }
@@ -177,7 +196,7 @@ function App() {
         {loading && !questionText ? 'Generating Reading...' : 'Generate Reading Question'}
       </button>
 
-      {loading && (questionText || imageDataUrl) && <p>Processing...</p>}
+      {loading && (questionText || imageDataUrls.length > 0) && <p>Processing...</p>} {/* Adjust loading condition */}
 
       {parsedQuestion && (
         <QuestionDisplay
@@ -200,26 +219,33 @@ function App() {
       {/* Image Question Upload */}
       <h2>Image-Based Questions (Gemini Pro Vision)</h2>
       <div className="image-upload-section">
-        <input type="file" accept="image/*" onChange={handleImageChange} disabled={loading} />
-        {imageDataUrl && (
-          <div className="image-preview">
-            <img src={imageDataUrl} alt="Preview" style={{ maxWidth: '300px', maxHeight: '300px', border: '1px solid #ccc' }} />
+        <input type="file" accept="image/*" multiple onChange={handleImageChange} disabled={loading} /> {/* <--- ADD multiple ATTRIBUTE */}
+        {imageDataUrls.length > 0 && (
+          <div className="image-previews-container"> {/* <--- NEW CONTAINER FOR MULTIPLE PREVIEWS */}
+            {imageDataUrls.map((url, index) => (
+              <img key={index} src={url} alt={`Preview ${index + 1}`} style={{ maxWidth: '150px', maxHeight: '150px', margin: '5px', border: '1px solid #ccc' }} />
+            ))}
           </div>
         )}
         <textarea
-          placeholder="Type your question about the image here (e.g., 'Solve for x', 'What is the area of this shape?', 'Explain the graph')."
+          placeholder="Type your question about ALL images here (e.g., 'Solve these math problems', 'Analyze these diagrams')."
           value={imageQuestionText}
           onChange={(e) => setImageQuestionText(e.target.value)}
           rows="3"
           disabled={loading}
         ></textarea>
-        <button onClick={handleSubmitImageQuestion} disabled={loading || !imageDataUrl || !imageQuestionText}>
-          {loading ? 'Analyzing Image...' : 'Analyze Image Question'}
+        <button onClick={handleSubmitImageQuestion} disabled={loading || imageDataUrls.length === 0 || !imageQuestionText}> {/* <--- Adjust disabled condition */}
+          {loading ? 'Analyzing Images...' : 'Analyze Image Questions'}
         </button>
       </div>
 
-      {imageAnalysisResult && (
-        <ImageQuestionDisplay analysis={imageAnalysisResult} />
+      {/* MODIFIED: Loop through results for multiple images */}
+      {imageAnalysisResults.length > 0 && (
+        <div className="all-image-results">
+            {imageAnalysisResults.map((analysis, index) => (
+                <ImageQuestionDisplay key={index} analysis={analysis} />
+            ))}
+        </div>
       )}
 
       {/* Study Plan Section */}

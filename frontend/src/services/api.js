@@ -99,21 +99,18 @@ export const getPerformanceSummary = async () => {
   }
 };
 
-// =========================================================
-// NEW API FUNCTION: Upload Image Question
-// =========================================================
-export const uploadImageQuestion = async (imageDataUrl, userPromptText) => {
+export const uploadImageQuestion = async (imageDataUrls, userPromptText) => { // <--- Changed imageDataUrl to imageDataUrls (plural)
   try {
     const response = await fetch(`${API_BASE_URL}/upload_image_question`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageDataUrl, userPromptText })
+      body: JSON.stringify({ imageDataUrls, userPromptText }) // <--- Send array
     });
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || 'Failed to upload image question');
     }
-    return response.json(); // Returns { message, aiResponse }
+    return response.json(); // Backend will now return {..., aiResponses: [...]}
   } catch (error) {
     console.error("API Error - uploadImageQuestion:", error);
     throw error;

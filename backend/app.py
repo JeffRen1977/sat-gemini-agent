@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from services.gemini_service import GeminiService
 from flask_cors import CORS
 from models import db, QuestionAttempt # <--- IMPORT DB AND MODEL
-import pandas as pd # <--- IMPORT PANDAS
 
 load_dotenv()
 
@@ -168,41 +167,57 @@ def study_plan_endpoint():
         return jsonify({"error": str(e)}), 500
     
 # =========================================================
-# NEW ENDPOINT: Upload Image Question
+# MODIFIED ENDPOINT: Upload Image Question
 # =========================================================
 @app.route('/upload_image_question', methods=['POST'])
 def upload_image_question_endpoint():
     data = request.json
-    image_data_url = data.get('imageDataUrl') # Base64 encoded image
+    image_data_urls = data.get('imageDataUrls')
     user_prompt_text = data.get('userPromptText')
 
-    if not image_data_url or not user_prompt_text:
-        return jsonify({"error": "Image data and user prompt text are required"}), 400
+    if not image_data_urls or not isinstance(image_data_urls, list) or not user_prompt_text:
+        return jsonify({"error": "An array of image data URLs and user prompt text are required"}), 400
 
-    try:
-        # Call Gemini Vision Pro service
-        ai_response_json = gemini_service.analyze_image_question(image_data_url, user_prompt_text)
+    all_ai_responses = []
+    for image_data_url in image_data_urls:
+        try:
+            ai_response_json = gemini_service.analyze_image_question(image_data_url, user_prompt_text)
 
-        if "error" in ai_response_json:
-            return jsonify({"error": ai_response_json["error"], "details": ai_response_json.get("details", "")}), 500
+            if "error" in ai_response_json:
+                app.logger.error(f"Error analyzing one image: {ai_response_json.get('error')} - {ai_response_json.get('details')}")
+                all_ai_responses.append({"error": "Failed to analyze this image", "details": ai_response_json.get("details", "")})
+                continue
 
-        # Save the attempt to the database
-        new_attempt = QuestionAttempt(
-            is_image_question=True,
-            image_base64_preview=image_data_url[:200] + "..." if len(image_data_url) > 200 else image_data_url, # Store small preview
-            user_image_prompt=user_prompt_text,
-            ai_generated_answer=ai_response_json.get('ai_answer', ''),
-            ai_generated_solution=ai_response_json.get('ai_solution', '')
-        )
-        db.session.add(new_attempt)
-        db.session.commit()
+            # --- NEW: Serialize ai_generated_solution to JSON string ---
+            # Check if ai_solution is a list (as we now expect it to be)
+            # If it's a string (fallback from Gemini), store it as is.
+            ai_solution_to_save = ai_response_json.get('ai_solution', [])
+            if isinstance(ai_solution_to_save, list):
+                ai_solution_to_save = json.dumps(ai_solution_to_save)
+            else:
+                # Handle cases where Gemini might still return a string as fallback
+                ai_solution_to_save = str(ai_solution_to_save)
+            # --- END NEW ---
 
-        return jsonify({"message": "Image analyzed successfully!", "aiResponse": ai_response_json}), 200
+            new_attempt = QuestionAttempt(
+                is_image_question=True,
+                image_base64_preview=image_data_url[:200] + "..." if len(image_data_url) > 200 else image_data_url,
+                user_image_prompt=user_prompt_text,
+                ai_generated_answer=ai_response_json.get('ai_answer', ''),
+                ai_generated_solution=ai_solution_to_save # <--- Use the serialized string
+            )
+            db.session.add(new_attempt)
+            db.session.commit()
 
-    except Exception as e:
-        app.logger.error(f"Error processing image question: {e}")
-        return jsonify({"error": str(e)}), 500
+            all_ai_responses.append(ai_response_json)
 
+        except Exception as e:
+            app.logger.error(f"Error processing image in loop: {e}")
+            all_ai_responses.append({"error": "An unexpected error occurred for this image", "details": str(e)})
 
+    if not all_ai_responses:
+        return jsonify({"error": "No images were successfully analyzed."}), 500
+
+    return jsonify({"message": "Images analyzed successfully!", "aiResponses": all_ai_responses}), 200
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

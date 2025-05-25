@@ -7,6 +7,8 @@ function ImageQuestionDisplay({ analysis }) {
     return null;
   }
 
+  const isSolutionArray = Array.isArray(analysis.ai_solution); // Check if it's an array
+
   return (
     <div className="image-analysis-container">
       <h3>AI Analysis & Solution:</h3>
@@ -16,7 +18,15 @@ function ImageQuestionDisplay({ analysis }) {
       {analysis.ai_solution && (
         <div>
           <p><strong>Detailed Solution/Explanation:</strong></p>
-          <p style={{whiteSpace: 'pre-wrap'}}>{analysis.ai_solution}</p> {/* Use pre-wrap for preserving newlines */}
+          {isSolutionArray ? (
+            <ol> {/* Use ordered list if it's an array */}
+              {analysis.ai_solution.map((step, index) => (
+                <li key={index} style={{ whiteSpace: 'pre-wrap' }}>{step}</li> 
+              ))}
+            </ol>
+          ) : (
+            <p style={{ whiteSpace: 'pre-wrap' }}>{analysis.ai_solution}</p>
+          )}
         </div>
       )}
       {analysis.ai_confidence && (

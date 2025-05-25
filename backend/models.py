@@ -1,6 +1,7 @@
 # backend/models.py
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import json # <--- ADD THIS IMPORT
 
 db = SQLAlchemy()
 
@@ -36,8 +37,10 @@ class QuestionAttempt(db.Model):
             'is_image_question': self.is_image_question,
             'image_base64_preview': self.image_base64_preview,
             'user_image_prompt': self.user_image_prompt,
-            'ai_generated_solution': self.ai_generated_solution,
-            'ai_generated_answer': self.ai_generated_answer
+            'ai_generated_answer': self.ai_generated_answer,
+            # --- NEW: Deserialize ai_generated_solution ---
+            'ai_generated_solution': json.loads(self.ai_generated_solution) if self.ai_generated_solution and self.is_image_question else self.ai_generated_solution
+            # --- END NEW ---
         }
         if not self.is_image_question:
             data.update({
