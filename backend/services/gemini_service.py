@@ -1,13 +1,22 @@
 # backend/services/gemini_service.py
 
 import google.generativeai as genai
-import json # <--- ADD THIS IMPORT
+import json  
+import base64 
+from io import BytesIO 
+from PIL import Image
+
+
 class GeminiService:
-    def __init__(self, api_key, model_name='models/gemini-2.5-flash-preview-05-20'):
+    def __init__(self, api_key, text_model_name='models/gemini-2.5-flash-preview-05-20', vision_model_name='gemini-pro-vision'):
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not set.")
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(model_name)
+        self.text_model_name = text_model_name
+        self.vision_model_name = vision_model_name # Store vision model name
+        self.text_model = genai.GenerativeModel(self.text_model_name) # Use text_model
+        self.vision_model = genai.GenerativeModel(self.vision_model_name) # <--- Initialize vision model
+
 
     def generate_sat_question(self, topic, difficulty="medium", question_type="multiple_choice"):
 
@@ -53,7 +62,7 @@ class GeminiService:
         adhere strictly to this example structure, including the specific delimiters for the passage:
         {READING_QUESTION_EXAMPLE}
         """
-        response = self.model.generate_content(prompt)
+        response = self.text_model.generate_content(prompt)
 
         # We'll parse the full response to extract Correct Answer and Explanation in dataParser.js
         # and these will be used for evaluation, but *not* displayed by QuestionDisplay.js
@@ -103,7 +112,7 @@ class GeminiService:
 
         Ensure the output is valid JSON, enclosed in triple backticks, and contains only the JSON.
         """
-        response = self.model.generate_content(prompt)
+        response = self.text_model.generate_content(prompt)
         text_response = response.text
         if text_response.startswith("```json") and text_response.endswith("```"):
             json_string = text_response[7:-3].strip()
@@ -139,7 +148,7 @@ class GeminiService:
 
         Ensure the output is valid JSON, enclosed in triple backticks, and contains only the JSON.
         """
-        response = self.model.generate_content(prompt)
+        response = self.text_model.generate_content(prompt)
         text_response = response.text
 
         if text_response.startswith("```json") and text_response.endswith("```"):
@@ -153,6 +162,62 @@ class GeminiService:
             print(f"Error decoding JSON for study plan from Gemini: {e}")
             print(f"Raw Gemini response for study plan: {text_response}")
             return {"error": "Failed to parse AI study plan response. Please try again.", "details": str(e), "raw_response": text_response}
+    
+    # =========================================================
+    # NEW METHOD: Analyze Image Question
+    # =========================================================
+    def analyze_image_question(self, image_base64_data, user_prompt_text):
+        try:
+            # Decode the base64 image data
+            # image_base64_data will be 'data:image/png;base64,iVBORw0KGgoAAA...'
+            # We need to strip the header and decode
+            header, encoded = image_base64_data.split(",", 1)
+            image_data_bytes = base64.b64decode(encoded)
+
+            # Create PIL Image object from bytes
+            img = Image.open(BytesIO(image_data_bytes))
+
+            # Prepare the content for Gemini Vision Pro
+            # The prompt is a list of parts: text and image
+            content = [
+                user_prompt_text,
+                img
+            ]
+
+            vision_prompt_instructions = """
+            You are an expert SAT tutor. Analyze the provided image and the user's question about it.
+            If the image contains a question (e.g., a math problem, a graph question), provide a clear, step-by-step solution and explanation.
+            If the user's prompt is a direct question about the image's content, answer it directly and provide an explanation.
+            If it's a multiple-choice question, identify the correct option.
+
+            Output should be a single JSON object with the following structure:
+            {
+              "ai_answer": string, // A concise direct answer (e.g., "The correct answer is C", "x=5", or "The function is linear").
+              "ai_solution": string, // The full step-by-step solution or detailed explanation.
+              "ai_confidence": string // Optional: "High", "Medium", "Low"
+            }
+
+            Ensure the output is valid JSON, enclosed in triple backticks, and contains only the JSON.
+            """
+
+            response = self.vision_model.generate_content([vision_prompt_instructions, img, user_prompt_text]) # Send all parts
+            text_response = response.text
+
+            if text_response.startswith("```json") and text_response.endswith("```"):
+                json_string = text_response[7:-3].strip()
+            else:
+                json_string = text_response.strip()
+
+            try:
+                return json.loads(json_string)
+            except json.JSONDecodeError as e:
+                print(f"Error decoding JSON from Gemini Vision: {e}")
+                print(f"Raw Gemini Vision response: {text_response}")
+                return {"error": "Failed to parse AI Vision response.", "details": str(e), "raw_response": text_response}
+
+        except Exception as e:
+            print(f"Error in analyze_image_question: {e}")
+            return {"error": "Image analysis failed.", "details": str(e)}
     
     # --- ADD THIS NEW METHOD ---
     def list_available_models(self):

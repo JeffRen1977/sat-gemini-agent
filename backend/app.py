@@ -29,10 +29,15 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY not found in environment variables. Please set it in .env file.")
 
-gemini_service = GeminiService(GEMINI_API_KEY)
+
+
+#gemini_service = GeminiService(GEMINI_API_KEY)
+# Initialize GeminiService with both model types
+gemini_service = GeminiService(GEMINI_API_KEY, text_model_name='models/gemini-2.5-flash-preview-05-20', vision_model_name='models/gemini-2.5-pro-preview-05-06')
+
 
 # TEMPORARY: Remove this line after you got the model list
-# gemini_service.list_available_models() # <-- REMOVE OR COMMENT OUT THIS LINE
+#gemini_service.list_available_models() # <-- REMOVE OR COMMENT OUT THIS LINE
 
 # =========================================================
 # NEW ENDPOINT: Save Question Attempt
@@ -160,6 +165,42 @@ def study_plan_endpoint():
         return jsonify({"study_plan": plan})
     except Exception as e:
         app.logger.error(f"Error generating study plan: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+# =========================================================
+# NEW ENDPOINT: Upload Image Question
+# =========================================================
+@app.route('/upload_image_question', methods=['POST'])
+def upload_image_question_endpoint():
+    data = request.json
+    image_data_url = data.get('imageDataUrl') # Base64 encoded image
+    user_prompt_text = data.get('userPromptText')
+
+    if not image_data_url or not user_prompt_text:
+        return jsonify({"error": "Image data and user prompt text are required"}), 400
+
+    try:
+        # Call Gemini Vision Pro service
+        ai_response_json = gemini_service.analyze_image_question(image_data_url, user_prompt_text)
+
+        if "error" in ai_response_json:
+            return jsonify({"error": ai_response_json["error"], "details": ai_response_json.get("details", "")}), 500
+
+        # Save the attempt to the database
+        new_attempt = QuestionAttempt(
+            is_image_question=True,
+            image_base64_preview=image_data_url[:200] + "..." if len(image_data_url) > 200 else image_data_url, # Store small preview
+            user_image_prompt=user_prompt_text,
+            ai_generated_answer=ai_response_json.get('ai_answer', ''),
+            ai_generated_solution=ai_response_json.get('ai_solution', '')
+        )
+        db.session.add(new_attempt)
+        db.session.commit()
+
+        return jsonify({"message": "Image analyzed successfully!", "aiResponse": ai_response_json}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error processing image question: {e}")
         return jsonify({"error": str(e)}), 500
 
 
