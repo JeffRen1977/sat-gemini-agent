@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from services.gemini_service import GeminiService
 from flask_cors import CORS
 from models import db, QuestionAttempt # <--- IMPORT DB AND MODEL
+import pandas as pd # <--- ENSURE THIS LINE IS HERE AND UNCOMMENTED!
 
 load_dotenv()
 
