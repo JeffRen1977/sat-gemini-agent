@@ -1,7 +1,17 @@
 // sat_gemini_agent/frontend/src/App.js
 
 import React, { useState, useEffect, useRef } from 'react';
-import { generateQuestion, evaluateAnswer, getStudyPlan, saveAttempt, getPerformanceSummary, uploadImageQuestion, generateQuestionFromDatabase } from './services/api';
+import {
+  generateQuestion,
+  evaluateAnswer,
+  getStudyPlan,
+  getPerformanceSummary,
+  uploadImageQuestion,
+  generateQuestionFromDatabase,
+  manageUserProfile,
+  getUserProfile,
+  assessKnowledge
+} from './services/api';
 import { parseQuestionText } from './utils/dataParser';
 import QuestionDisplay from './components/QuestionDisplay';
 import FeedbackDisplay from './components/FeedbackDisplay';
@@ -10,6 +20,13 @@ import ImageQuestionDisplay from './components/ImageQuestionDisplay';
 import './App.css';
 
 function App() {
+  // --- USER STATE ---
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [username, setUsername] = useState('');
+  const [userProfile, setUserProfile] = useState(null);
+  const [initialKnowledgeInput, setInitialKnowledgeInput] = useState('');
+
+  // --- EXISTING QUESTION STATES ---
   const [questionText, setQuestionText] = useState(null);
   const [parsedQuestion, setParsedQuestion] = useState(null);
   const [userAnswer, setUserAnswer] = useState('');
@@ -20,19 +37,128 @@ function App() {
   const [currentDifficulty, setCurrentDifficulty] = useState('medium');
   const [startTime, setStartTime] = useState(null);
 
+  // --- IMAGE QUESTION STATES ---
   const [selectedImages, setSelectedImages] = useState([]);
   const [imageDataUrls, setImageDataUrls] = useState([]);
   const [imageQuestionText, setImageQuestionText] = useState('');
   const [imageAnalysisResults, setImageAnalysisResults] = useState([]);
 
-  // NEW STATE FOR DB QUESTION GENERATION
+  // --- DB QUESTION GENERATION STATE ---
   const [dbQueryTopic, setDbQueryTopic] = useState('');
 
+  // --- EFFECT FOR INITIAL USER LOAD/REGISTRATION ---
   useEffect(() => {
-    fetchNewQuestion(currentTopic, currentDifficulty);
+    const storedUserId = localStorage.getItem('currentUserId');
+    const storedUsername = localStorage.getItem('currentUsername');
+    if (storedUserId && storedUsername) {
+      setCurrentUserId(parseInt(storedUserId));
+      setUsername(storedUsername);
+      fetchUserProfile(parseInt(storedUserId));
+    } else {
+      console.log("No user found. Please enter a username to start or register.");
+    }
   }, []);
 
+  // --- NEW USER MANAGEMENT FUNCTIONS ---
+  const handleUsernameChange = (e) => {
+    setUsername(e.target.value);
+  };
+
+  const handleRegisterOrLogin = async () => {
+    if (!username.trim()) {
+      alert("Please enter a username.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const existingUserResponse = await getUserProfile(username.trim());
+
+      // --- MODIFIED LOGIC HERE ---
+      let user = null;
+      if (existingUserResponse && existingUserResponse.user) {
+          user = existingUserResponse.user;
+      }
+      // --- END MODIFIED LOGIC ---
+
+      if (user) {
+        setCurrentUserId(user.id);
+        setUserProfile(user);
+        localStorage.setItem('currentUserId', user.id);
+        localStorage.setItem('currentUsername', user.username);
+        alert(`Welcome back, ${user.username}!`);
+      } else {
+        // User does not exist, register new user
+        const newUserResponse = await manageUserProfile({ username: username.trim() });
+        setCurrentUserId(newUserResponse.user.id);
+        setUserProfile(newUserResponse.user);
+        localStorage.setItem('currentUserId', newUserResponse.user.id);
+        localStorage.setItem('currentUsername', newUserResponse.user.username);
+        alert(`New user ${newUserResponse.user.username} registered!`);
+      }
+    } catch (error) {
+      console.error("Error during register/login:", error);
+      alert(`Failed to register/login: ${error.message}. Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserProfile = async (userId) => {
+    setLoading(true);
+    try {
+      const response = await getUserProfile(userId);
+      // Ensure response is not null before setting profile
+      if (response && response.user) { // Safely check response and its user property
+        setUserProfile(response.user);
+      } else {
+        setUserProfile(null); // Clear profile if not found
+        console.warn(`User profile for ID ${userId} not found.`);
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      setUserProfile(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- NEW KNOWLEDGE ASSESSMENT FUNCTION ---
+  const handleAssessKnowledge = async () => {
+    if (!currentUserId) {
+      alert("Please log in or register a user first.");
+      return;
+    }
+    if (!initialKnowledgeInput.trim()) {
+      alert("Please describe your current knowledge or learning goals.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await assessKnowledge(currentUserId, initialKnowledgeInput.trim());
+      if (response.assessment) {
+        setUserProfile(prevProfile => ({
+          ...prevProfile,
+          current_knowledge_level: response.assessment
+        }));
+        alert("Knowledge assessed and profile updated!");
+        setInitialKnowledgeInput('');
+      } else {
+        alert("Failed to assess knowledge. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error assessing knowledge:", error);
+      alert(`Failed to assess knowledge: ${error.message}. Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- MODIFIED EXISTING FUNCTIONS TO PASS userId ---
   const fetchNewQuestion = async (topic, difficulty, type = 'multiple_choice') => {
+    if (!currentUserId) {
+      alert("Please log in or register a user before generating questions.");
+      return;
+    }
     setLoading(true);
     setFeedback('');
     setStudyPlan('');
@@ -41,13 +167,13 @@ function App() {
     setSelectedImages([]);
     setImageDataUrls([]);
     setImageQuestionText('');
-    setDbQueryTopic(''); // Clear DB query topic on regular question generation
+    setDbQueryTopic('');
 
     setStartTime(Date.now());
     setCurrentTopic(topic);
     setCurrentDifficulty(difficulty);
     try {
-      const data = await generateQuestion(topic, difficulty, type);
+      const data = await generateQuestion(topic, difficulty, type, currentUserId);
       setQuestionText(data.question);
       setParsedQuestion(parseQuestionText(data.question));
     } catch (error) {
@@ -59,8 +185,11 @@ function App() {
     }
   };
 
-  // NEW FUNCTION: Fetch Question from Database
   const fetchQuestionFromDatabase = async () => {
+    if (!currentUserId) {
+      alert("Please log in or register a user before generating questions.");
+      return;
+    }
     if (!dbQueryTopic) {
       alert("Please enter a topic or keywords to query the database.");
       return;
@@ -74,14 +203,14 @@ function App() {
     setSelectedImages([]);
     setImageDataUrls([]);
     setImageQuestionText('');
-    setQuestionText(null); // Clear previous text question
+    setQuestionText(null);
 
     setStartTime(Date.now());
-    setCurrentTopic(dbQueryTopic); // Use the query topic as the current topic
-    setCurrentDifficulty('medium'); // Default difficulty for DB generated questions
+    setCurrentTopic(dbQueryTopic);
+    setCurrentDifficulty('medium');
 
     try {
-      const data = await generateQuestionFromDatabase(dbQueryTopic, currentDifficulty, 'multiple_choice');
+      const data = await generateQuestionFromDatabase(dbQueryTopic, currentDifficulty, 'multiple_choice', currentUserId);
       setQuestionText(data.question);
       setParsedQuestion(parseQuestionText(data.question));
     } catch (error) {
@@ -95,6 +224,10 @@ function App() {
 
 
   const handleSubmitAnswer = async () => {
+    if (!currentUserId) {
+      alert("Please log in or register a user before submitting answers.");
+      return;
+    }
     if (!parsedQuestion || !userAnswer) {
       alert("Please generate a question and provide an answer.");
       return;
@@ -109,20 +242,16 @@ function App() {
         explanation: parsedQuestion.explanation,
       };
 
-      const feedbackData = await evaluateAnswer(questionText, userAnswer, correct_answer_info);
+      const feedbackData = await evaluateAnswer(
+        questionText,
+        userAnswer,
+        correct_answer_info,
+        currentTopic,
+        currentDifficulty,
+        timeTakenSeconds,
+        currentUserId
+      );
       setFeedback(feedbackData.feedback);
-
-      const isCorrect = feedbackData.feedback.is_correct;
-      const attemptData = {
-        questionText: questionText,
-        topic: currentTopic,
-        difficulty: currentDifficulty,
-        userAnswer: userAnswer,
-        correctAnswer: parsedQuestion.correctAnswer,
-        isCorrect: isCorrect,
-        timeTakenSeconds: timeTakenSeconds,
-      };
-      await saveAttempt(attemptData);
 
     } catch (error) {
       console.error("Error submitting answer:", error);
@@ -133,21 +262,47 @@ function App() {
   };
 
   const handleGetStudyPlan = async () => {
+    if (!currentUserId) {
+      alert("Please log in or register a user to get a study plan.");
+      return;
+    }
     setLoading(true);
     try {
-      const summaryResponse = await getPerformanceSummary();
+      const summaryResponse = await getPerformanceSummary(currentUserId);
       const userPerformanceData = summaryResponse.performance_data;
 
       if (Object.keys(userPerformanceData).length === 0) {
-        setStudyPlan("No practice attempts recorded yet to generate a study plan. Please answer some questions first!");
+        setStudyPlan("No practice attempts recorded yet for this user to generate a study plan. Please answer some questions first!");
         return;
       }
 
-      const data = await getStudyPlan(userPerformanceData);
+      const data = await getStudyPlan(userPerformanceData, currentUserId);
       setStudyPlan(data.study_plan);
     } catch (error) {
       console.error("Error getting study plan:", error);
       setStudyPlan("Failed to generate study plan. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitImageQuestion = async () => {
+    if (!currentUserId) {
+      alert("Please log in or register a user before analyzing images.");
+      return;
+    }
+    if (imageDataUrls.length === 0 || !imageQuestionText) {
+      alert("Please upload at least one image and type your question.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await uploadImageQuestion(imageDataUrls, imageQuestionText, currentUserId);
+      setImageAnalysisResults(result.aiResponses);
+    } catch (error) {
+      console.error("Error submitting image question:", error);
+      setImageAnalysisResults([{ error: "Failed to analyze image question.", details: error.message }]);
     } finally {
       setLoading(false);
     }
@@ -169,7 +324,7 @@ function App() {
     setFeedback(null);
     setImageAnalysisResults([]);
     setStudyPlan(null);
-    setDbQueryTopic(''); // Clear DB query topic on image upload
+    setDbQueryTopic('');
 
     let loadedCount = 0;
     const newImageDataUrls = [];
@@ -192,38 +347,76 @@ function App() {
     });
   };
 
-  const handleSubmitImageQuestion = async () => {
-    if (imageDataUrls.length === 0 || !imageQuestionText) {
-      alert("Please upload at least one image and type your question.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const result = await uploadImageQuestion(imageDataUrls, imageQuestionText);
-      setImageAnalysisResults(result.aiResponses);
-    } catch (error) {
-      console.error("Error submitting image question:", error);
-      setImageAnalysisResults([{ error: "Failed to analyze image question.", details: error.message }]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="App">
       <h1>SAT Gemini Agent</h1>
 
-      {/* Text Question Generation */}
+      {/* --- User Management Section --- */}
+      <div className="user-management-section">
+        <h2>User Profile</h2>
+        {currentUserId ? (
+          <div>
+            <p>Logged in as: <strong>{username}</strong> (ID: {currentUserId})</p>
+            {userProfile && (
+              <div className="user-profile-details">
+                <p><strong>Learning Goals:</strong> {userProfile.learning_goals && userProfile.learning_goals.join(', ')}</p>
+                <p><strong>Learning Style:</strong> {userProfile.learning_style_preference}</p>
+                <p>
+                  <strong>Knowledge Level:</strong>
+                  {userProfile.current_knowledge_level && Object.keys(userProfile.current_knowledge_level).length > 0 ? (
+                    Object.entries(userProfile.current_knowledge_level).map(([topic, level]) => (
+                      <span key={topic}>{topic}: {level} | </span>
+                    ))
+                  ) : 'Not assessed yet.'}
+                </p>
+                <p><strong>Preferences:</strong> {userProfile.preferences && JSON.stringify(userProfile.preferences)}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <input
+              type="text"
+              placeholder="Enter username"
+              value={username}
+              onChange={handleUsernameChange}
+              disabled={loading}
+            />
+            <button onClick={handleRegisterOrLogin} disabled={loading}>
+              {loading ? 'Processing...' : 'Login / Register'}
+            </button>
+            <p>Enter a username to login or register a new profile.</p>
+          </div>
+        )}
+      </div>
+
+      {currentUserId && (
+        <div className="knowledge-assessment-section">
+          <h3>Assess Your Knowledge</h3>
+          <textarea
+            placeholder="Tell me about your current knowledge (e.g., 'I am strong in algebra but need help with reading comprehension main idea questions')."
+            value={initialKnowledgeInput}
+            onChange={(e) => setInitialKnowledgeInput(e.target.value)}
+            rows="3"
+            disabled={loading}
+          ></textarea>
+          <button onClick={handleAssessKnowledge} disabled={loading || !initialKnowledgeInput.trim()}>
+            {loading ? 'Assessing...' : 'Assess My Knowledge'}
+          </button>
+        </div>
+      )}
+      <hr />
+      {/* --- END User Management Section --- */}
+
       <h2>Text-Based Practice Questions (AI Generated)</h2>
-      <button onClick={() => fetchNewQuestion('algebra word problems', 'medium', 'multiple_choice')} disabled={loading}>
+      <button onClick={() => fetchNewQuestion('algebra word problems', 'medium', 'multiple_choice')} disabled={loading || !currentUserId}>
         {loading && !questionText ? 'Generating Math...' : 'Generate Math Question'}
       </button>
-      <button onClick={() => fetchNewQuestion('reading comprehension', 'hard', 'multiple_choice')} disabled={loading}>
+      <button onClick={() => fetchNewQuestion('reading comprehension', 'hard', 'multiple_choice')} disabled={loading || !currentUserId}>
         {loading && !questionText ? 'Generating Reading...' : 'Generate Reading Question'}
       </button>
 
-      {/* NEW SECTION: Generate Questions from Database */}
       <hr />
       <h2>Generate Questions from Database (RAG)</h2>
       <div className="db-question-section">
@@ -232,13 +425,12 @@ function App() {
           value={dbQueryTopic}
           onChange={(e) => setDbQueryTopic(e.target.value)}
           rows="2"
-          disabled={loading}
+          disabled={loading || !currentUserId}
         ></textarea>
-        <button onClick={fetchQuestionFromDatabase} disabled={loading || !dbQueryTopic}>
+        <button onClick={fetchQuestionFromDatabase} disabled={loading || !dbQueryTopic || !currentUserId}>
           {loading ? 'Searching DB...' : 'Generate Question from DB'}
         </button>
       </div>
-
 
       {loading && (questionText || imageDataUrls.length > 0) && <p>Processing...</p>}
 
@@ -260,10 +452,9 @@ function App() {
         />
       )}
 
-      {/* Image Question Upload */}
       <h2>Image-Based Questions (Gemini Pro Vision)</h2>
       <div className="image-upload-section">
-        <input type="file" accept="image/*" multiple onChange={handleImageChange} disabled={loading} />
+        <input type="file" accept="image/*" multiple onChange={handleImageChange} disabled={loading || !currentUserId} />
         {imageDataUrls.length > 0 && (
           <div className="image-previews-container">
             {imageDataUrls.map((url, index) => (
@@ -276,9 +467,9 @@ function App() {
           value={imageQuestionText}
           onChange={(e) => setImageQuestionText(e.target.value)}
           rows="3"
-          disabled={loading}
+          disabled={loading || !currentUserId}
         ></textarea>
-        <button onClick={handleSubmitImageQuestion} disabled={loading || imageDataUrls.length === 0 || !imageQuestionText}>
+        <button onClick={handleSubmitImageQuestion} disabled={loading || imageDataUrls.length === 0 || !imageQuestionText || !currentUserId}>
           {loading ? 'Analyzing Images...' : 'Analyze Image Questions'}
         </button>
       </div>
@@ -291,10 +482,9 @@ function App() {
         </div>
       )}
 
-      {/* Study Plan Section */}
       <hr />
       <h2>Personalized Study Plan</h2>
-      <button onClick={handleGetStudyPlan} disabled={loading}>
+      <button onClick={handleGetStudyPlan} disabled={loading || !currentUserId}>
         Get Personalized Study Plan
       </button>
 
