@@ -1,12 +1,13 @@
-# backend/app.py
+# sat_gemini_agent/backend/app.py
 import os
 import json
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from services.gemini_service import GeminiService
 from flask_cors import CORS
-from models import db, QuestionAttempt # <--- IMPORT DB AND MODEL
-import pandas as pd # <--- ENSURE THIS LINE IS HERE AND UNCOMMENTED!
+from models import db, QuestionAttempt
+import pandas as pd
+from src.retriever import get_retriever # Import the retriever
 
 load_dotenv()
 
@@ -14,40 +15,32 @@ app = Flask(__name__)
 CORS(app)
 
 # Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db' # SQLite database file in your backend folder
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db.init_app(app) # <--- INITIALIZE DB WITH APP
+db.init_app(app)
 
-# --- ADD THIS TO CREATE TABLES (FOR DEVELOPMENT ONLY) ---
-# In a real app, use Flask-Migrate or Alembic for proper migrations
 with app.app_context():
     db.create_all()
-# --- END DB CREATION ---
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY not found in environment variables. Please set it in .env file.")
+# --- CHANGE STARTS HERE ---
+# Use GOOGLE_API_KEY for consistency across the backend components
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    raise RuntimeError("GOOGLE_API_KEY not found in environment variables. Please set it in .env file.")
 
+# Pass GOOGLE_API_KEY to GeminiService
+gemini_service = GeminiService(GOOGLE_API_KEY, text_model_name='models/gemini-2.5-flash-preview-05-20', vision_model_name='models/gemini-2.5-pro-preview-05-06')
+# --- CHANGE ENDS HERE ---
 
+retriever = get_retriever() # Initialize the retriever globally or per request as needed
 
-#gemini_service = GeminiService(GEMINI_API_KEY)
-# Initialize GeminiService with both model types
-gemini_service = GeminiService(GEMINI_API_KEY, text_model_name='models/gemini-2.5-flash-preview-05-20', vision_model_name='models/gemini-2.5-pro-preview-05-06')
-
-
-# TEMPORARY: Remove this line after you got the model list
-#gemini_service.list_available_models() # <-- REMOVE OR COMMENT OUT THIS LINE
-
-# =========================================================
-# NEW ENDPOINT: Save Question Attempt
-# =========================================================
 @app.route('/save_attempt', methods=['POST'])
 def save_attempt_endpoint():
     data = request.json
     try:
         new_attempt = QuestionAttempt(
-            user_id=data.get('userId', 'anonymous'), # Add user_id if you implement auth
+            user_id=data.get('userId', 'anonymous'),
             question_text=data['questionText'],
             topic=data['topic'],
             difficulty=data['difficulty'],
@@ -66,21 +59,15 @@ def save_attempt_endpoint():
         app.logger.error(f"Error saving attempt: {e}")
         return jsonify({"error": str(e)}), 500
 
-# =========================================================
-# NEW ENDPOINT: Get Aggregated Performance Summary for Study Plan
-# =========================================================
 @app.route('/get_performance_summary', methods=['GET'])
 def get_performance_summary_endpoint():
-    # In a real app, you'd filter by user_id here
     attempts = QuestionAttempt.query.all()
 
     if not attempts:
         return jsonify({"message": "No practice attempts recorded yet.", "performance_data": {}}), 200
 
-    # Convert attempts to a pandas DataFrame for easy aggregation
     df = pd.DataFrame([a.to_dict() for a in attempts])
 
-    # Basic aggregation: correct vs incorrect count by topic
     performance_by_topic = {}
     for topic in df['topic'].unique():
         topic_df = df[df['topic'] == topic]
@@ -91,8 +78,6 @@ def get_performance_summary_endpoint():
             'incorrect': int(incorrect_count)
         }
 
-    # You can add more sophisticated aggregation here (e.g., by difficulty, average time)
-    # For now, we'll mimic the old userPerformance structure for compatibility with Gemini prompt
     aggregated_data = {
         'math': {},
         'reading': {},
@@ -100,7 +85,6 @@ def get_performance_summary_endpoint():
     }
 
     for topic, counts in performance_by_topic.items():
-        # Simple mapping to SAT sections
         if 'algebra' in topic.lower() or 'geometry' in topic.lower() or 'math' in topic.lower():
             aggregated_data['math'][topic] = counts
         elif 'reading' in topic.lower() or 'passage' in topic.lower():
@@ -108,7 +92,6 @@ def get_performance_summary_endpoint():
         elif 'writing' in topic.lower() or 'grammar' in topic.lower():
             aggregated_data['writing'][topic] = counts
         else:
-            # Fallback for topics not explicitly mapped
             aggregated_data[topic] = counts
 
 
@@ -132,21 +115,50 @@ def generate_question_endpoint():
         app.logger.error(f"Error generating question: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/generate_question_from_db', methods=['POST'])
+def generate_question_from_db_endpoint():
+    data = request.json
+    query_topic = data.get('query_topic')
+    difficulty = data.get('difficulty', 'medium')
+    question_type = data.get('question_type', 'multiple_choice')
+
+    if not query_topic:
+        return jsonify({"error": "Query topic is required to retrieve relevant content from the database."}), 400
+
+    try:
+        retrieved_docs_langchain = retriever.invoke(query_topic)
+        
+        context_texts = [doc.page_content for doc in retrieved_docs_langchain]
+        context_combined = "\n\n".join(context_texts)
+
+        if not context_combined.strip():
+            return jsonify({"question": "Could not find relevant content in the database to generate a question for this topic. Please try a different query."})
+
+        question_text = gemini_service.generate_sat_question_from_context(
+            context_combined,
+            query_topic,
+            difficulty,
+            question_type
+        )
+        return jsonify({"question": question_text})
+    except Exception as e:
+        app.logger.error(f"Error generating question from DB: {e}")
+        return jsonify({"error": f"Failed to generate question from database: {str(e)}"}), 500
+
+
 @app.route('/evaluate_answer', methods=['POST'])
 def evaluate_answer_endpoint():
     data = request.json
-    # The 'question' key in the payload from frontend should be the raw text
-    question_text = data.get('question_text') # Renamed from 'question' to avoid confusion
+    question_text = data.get('question_text')
     user_answer = data.get('user_answer')
-    correct_answer_info = data.get('correct_answer_info') # {'answer': '...', 'explanation': '...'}
+    correct_answer_info = data.get('correct_answer_info')
 
     if not all([question_text, user_answer, correct_answer_info]):
         return jsonify({"error": "Missing required fields"}), 400
 
     try:
-        # Pass question_text (raw text) to gemini_service
         feedback = gemini_service.evaluate_and_explain(question_text, user_answer, correct_answer_info)
-        return jsonify({"feedback": feedback}) # feedback is now a JSON object from gemini_service
+        return jsonify({"feedback": feedback})
     except Exception as e:
         app.logger.error(f"Error evaluating answer: {e}")
         return jsonify({"error": str(e)}), 500
@@ -154,7 +166,6 @@ def evaluate_answer_endpoint():
 @app.route('/study_plan', methods=['POST'])
 def study_plan_endpoint():
     data = request.json
-    # user_performance_data is now expected to come from the frontend (via get_performance_summary)
     user_performance_data = data.get('user_performance_data')
 
     if not user_performance_data:
@@ -167,9 +178,6 @@ def study_plan_endpoint():
         app.logger.error(f"Error generating study plan: {e}")
         return jsonify({"error": str(e)}), 500
     
-# =========================================================
-# MODIFIED ENDPOINT: Upload Image Question
-# =========================================================
 @app.route('/upload_image_question', methods=['POST'])
 def upload_image_question_endpoint():
     data = request.json
@@ -189,23 +197,18 @@ def upload_image_question_endpoint():
                 all_ai_responses.append({"error": "Failed to analyze this image", "details": ai_response_json.get("details", "")})
                 continue
 
-            # --- NEW: Serialize ai_generated_solution to JSON string ---
-            # Check if ai_solution is a list (as we now expect it to be)
-            # If it's a string (fallback from Gemini), store it as is.
             ai_solution_to_save = ai_response_json.get('ai_solution', [])
             if isinstance(ai_solution_to_save, list):
                 ai_solution_to_save = json.dumps(ai_solution_to_save)
             else:
-                # Handle cases where Gemini might still return a string as fallback
                 ai_solution_to_save = str(ai_solution_to_save)
-            # --- END NEW ---
 
             new_attempt = QuestionAttempt(
                 is_image_question=True,
                 image_base64_preview=image_data_url[:200] + "..." if len(image_data_url) > 200 else image_data_url,
                 user_image_prompt=user_prompt_text,
                 ai_generated_answer=ai_response_json.get('ai_answer', ''),
-                ai_generated_solution=ai_solution_to_save # <--- Use the serialized string
+                ai_generated_solution=ai_solution_to_save
             )
             db.session.add(new_attempt)
             db.session.commit()
@@ -219,6 +222,7 @@ def upload_image_question_endpoint():
     if not all_ai_responses:
         return jsonify({"error": "No images were successfully analyzed."}), 500
 
-    return jsonify({"message": "Images analyzed successfully!", "aiResponses": all_ai_responses}), 200
+    return jsonify({"message": "Images analyzed successfully!", "aiResponses": all_ai_responses}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -1,7 +1,7 @@
-// frontend/src/App.js
+// sat_gemini_agent/frontend/src/App.js
 
 import React, { useState, useEffect, useRef } from 'react';
-import { generateQuestion, evaluateAnswer, getStudyPlan, saveAttempt, getPerformanceSummary, uploadImageQuestion } from './services/api';
+import { generateQuestion, evaluateAnswer, getStudyPlan, saveAttempt, getPerformanceSummary, uploadImageQuestion, generateQuestionFromDatabase } from './services/api';
 import { parseQuestionText } from './utils/dataParser';
 import QuestionDisplay from './components/QuestionDisplay';
 import FeedbackDisplay from './components/FeedbackDisplay';
@@ -10,7 +10,6 @@ import ImageQuestionDisplay from './components/ImageQuestionDisplay';
 import './App.css';
 
 function App() {
-  // Existing states for text questions
   const [questionText, setQuestionText] = useState(null);
   const [parsedQuestion, setParsedQuestion] = useState(null);
   const [userAnswer, setUserAnswer] = useState('');
@@ -21,14 +20,13 @@ function App() {
   const [currentDifficulty, setCurrentDifficulty] = useState('medium');
   const [startTime, setStartTime] = useState(null);
 
-  // =========================================================
-  // MODIFIED STATES FOR IMAGE UPLOAD (now for multiple images)
-  // =========================================================
-  const [selectedImages, setSelectedImages] = useState([]); // Stores array of file objects
-  const [imageDataUrls, setImageDataUrls] = useState([]); // Stores array of Base64 data URLs
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [imageDataUrls, setImageDataUrls] = useState([]);
   const [imageQuestionText, setImageQuestionText] = useState('');
-  const [imageAnalysisResults, setImageAnalysisResults] = useState([]); // Stores array of results for each image
-  // =========================================================
+  const [imageAnalysisResults, setImageAnalysisResults] = useState([]);
+
+  // NEW STATE FOR DB QUESTION GENERATION
+  const [dbQueryTopic, setDbQueryTopic] = useState('');
 
   useEffect(() => {
     fetchNewQuestion(currentTopic, currentDifficulty);
@@ -39,10 +37,11 @@ function App() {
     setFeedback('');
     setStudyPlan('');
     setUserAnswer('');
-    setImageAnalysisResults([]); // <--- Clear image results when generating text question
-    setSelectedImages([]); // <--- Clear selected images
-    setImageDataUrls([]); // <--- Clear image data URLs
+    setImageAnalysisResults([]);
+    setSelectedImages([]);
+    setImageDataUrls([]);
     setImageQuestionText('');
+    setDbQueryTopic(''); // Clear DB query topic on regular question generation
 
     setStartTime(Date.now());
     setCurrentTopic(topic);
@@ -59,6 +58,41 @@ function App() {
       setLoading(false);
     }
   };
+
+  // NEW FUNCTION: Fetch Question from Database
+  const fetchQuestionFromDatabase = async () => {
+    if (!dbQueryTopic) {
+      alert("Please enter a topic or keywords to query the database.");
+      return;
+    }
+
+    setLoading(true);
+    setFeedback('');
+    setStudyPlan('');
+    setUserAnswer('');
+    setImageAnalysisResults([]);
+    setSelectedImages([]);
+    setImageDataUrls([]);
+    setImageQuestionText('');
+    setQuestionText(null); // Clear previous text question
+
+    setStartTime(Date.now());
+    setCurrentTopic(dbQueryTopic); // Use the query topic as the current topic
+    setCurrentDifficulty('medium'); // Default difficulty for DB generated questions
+
+    try {
+      const data = await generateQuestionFromDatabase(dbQueryTopic, currentDifficulty, 'multiple_choice');
+      setQuestionText(data.question);
+      setParsedQuestion(parseQuestionText(data.question));
+    } catch (error) {
+      console.error("Error fetching question from database:", error);
+      setQuestionText(`Failed to load question from database: ${error.message}. Please try again.`);
+      setParsedQuestion(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const handleSubmitAnswer = async () => {
     if (!parsedQuestion || !userAnswer) {
@@ -119,11 +153,8 @@ function App() {
     }
   };
 
-  // =========================================================
-  // MODIFIED FUNCTIONS FOR IMAGE UPLOAD (now for multiple images)
-  // =========================================================
   const handleImageChange = (event) => {
-    const files = Array.from(event.target.files); // Convert FileList to Array
+    const files = Array.from(event.target.files);
     if (files.length === 0) {
         setSelectedImages([]);
         setImageDataUrls([]);
@@ -131,14 +162,14 @@ function App() {
     }
 
     setSelectedImages(files);
-    setImageDataUrls([]); // Clear previous URLs
+    setImageDataUrls([]);
 
-    // Clear text question display and analysis results
     setQuestionText(null);
     setParsedQuestion(null);
     setFeedback(null);
     setImageAnalysisResults([]);
     setStudyPlan(null);
+    setDbQueryTopic(''); // Clear DB query topic on image upload
 
     let loadedCount = 0;
     const newImageDataUrls = [];
@@ -146,19 +177,18 @@ function App() {
     files.forEach((file) => {
         if (!file.type.startsWith('image/')) {
             alert(`File ${file.name} is not an image. Please select only image files.`);
-            // You might want to filter out non-images or stop processing here
             return;
         }
 
         const reader = new FileReader();
         reader.onloadend = () => {
-            newImageDataUrls.push(reader.result); // Add Base64 data URL
+            newImageDataUrls.push(reader.result);
             loadedCount++;
             if (loadedCount === files.length) {
                 setImageDataUrls(newImageDataUrls);
             }
         };
-        reader.readAsDataURL(file); // Read file as Base64
+        reader.readAsDataURL(file);
     });
   };
 
@@ -170,9 +200,8 @@ function App() {
 
     setLoading(true);
     try {
-      // Send an array of imageDataUrls to the backend
       const result = await uploadImageQuestion(imageDataUrls, imageQuestionText);
-      setImageAnalysisResults(result.aiResponses); // Backend will return an array of responses
+      setImageAnalysisResults(result.aiResponses);
     } catch (error) {
       console.error("Error submitting image question:", error);
       setImageAnalysisResults([{ error: "Failed to analyze image question.", details: error.message }]);
@@ -180,15 +209,13 @@ function App() {
       setLoading(false);
     }
   };
-  // =========================================================
-
 
   return (
     <div className="App">
       <h1>SAT Gemini Agent</h1>
 
       {/* Text Question Generation */}
-      <h2>Text-Based Practice Questions</h2>
+      <h2>Text-Based Practice Questions (AI Generated)</h2>
       <button onClick={() => fetchNewQuestion('algebra word problems', 'medium', 'multiple_choice')} disabled={loading}>
         {loading && !questionText ? 'Generating Math...' : 'Generate Math Question'}
       </button>
@@ -196,7 +223,24 @@ function App() {
         {loading && !questionText ? 'Generating Reading...' : 'Generate Reading Question'}
       </button>
 
-      {loading && (questionText || imageDataUrls.length > 0) && <p>Processing...</p>} {/* Adjust loading condition */}
+      {/* NEW SECTION: Generate Questions from Database */}
+      <hr />
+      <h2>Generate Questions from Database (RAG)</h2>
+      <div className="db-question-section">
+        <textarea
+          placeholder="Enter topic or keywords to find relevant content in the database (e.g., 'Pythagorean theorem', 'argumentative essays')"
+          value={dbQueryTopic}
+          onChange={(e) => setDbQueryTopic(e.target.value)}
+          rows="2"
+          disabled={loading}
+        ></textarea>
+        <button onClick={fetchQuestionFromDatabase} disabled={loading || !dbQueryTopic}>
+          {loading ? 'Searching DB...' : 'Generate Question from DB'}
+        </button>
+      </div>
+
+
+      {loading && (questionText || imageDataUrls.length > 0) && <p>Processing...</p>}
 
       {parsedQuestion && (
         <QuestionDisplay
@@ -219,9 +263,9 @@ function App() {
       {/* Image Question Upload */}
       <h2>Image-Based Questions (Gemini Pro Vision)</h2>
       <div className="image-upload-section">
-        <input type="file" accept="image/*" multiple onChange={handleImageChange} disabled={loading} /> {/* <--- ADD multiple ATTRIBUTE */}
+        <input type="file" accept="image/*" multiple onChange={handleImageChange} disabled={loading} />
         {imageDataUrls.length > 0 && (
-          <div className="image-previews-container"> {/* <--- NEW CONTAINER FOR MULTIPLE PREVIEWS */}
+          <div className="image-previews-container">
             {imageDataUrls.map((url, index) => (
               <img key={index} src={url} alt={`Preview ${index + 1}`} style={{ maxWidth: '150px', maxHeight: '150px', margin: '5px', border: '1px solid #ccc' }} />
             ))}
@@ -234,12 +278,11 @@ function App() {
           rows="3"
           disabled={loading}
         ></textarea>
-        <button onClick={handleSubmitImageQuestion} disabled={loading || imageDataUrls.length === 0 || !imageQuestionText}> {/* <--- Adjust disabled condition */}
+        <button onClick={handleSubmitImageQuestion} disabled={loading || imageDataUrls.length === 0 || !imageQuestionText}>
           {loading ? 'Analyzing Images...' : 'Analyze Image Questions'}
         </button>
       </div>
 
-      {/* MODIFIED: Loop through results for multiple images */}
       {imageAnalysisResults.length > 0 && (
         <div className="all-image-results">
             {imageAnalysisResults.map((analysis, index) => (

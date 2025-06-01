@@ -22,7 +22,7 @@ class GeminiService:
     def __init__(self, api_key, text_model_name='models/gemini-2.5-flash-preview-05-20', vision_model_name='gemini-pro-vision'):
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not set.")
-        genai.configure(api_key=api_key)
+        #genai.configure(api_key=api_key)
         self.text_model_name = text_model_name
         self.vision_model_name = vision_model_name # Store vision model name
         self.text_model = genai.GenerativeModel(self.text_model_name) # Use text_model
@@ -251,3 +251,33 @@ class GeminiService:
                 models_info.append(f"  Name: {m.name}, Supported Methods: {m.supported_generation_methods}, Description: {m.description}")
         print("\n".join(models_info))
         print("-------------------------------------")
+
+    # NEW METHOD: Generate SAT Question from Context
+    def generate_sat_question_from_context(self, context_text: str, topic: str, difficulty: str, question_type: str):
+        prompt = f"""
+        You are an expert SAT question generator.
+        Create a {difficulty} difficulty SAT-style {question_type} question based on the following context:
+
+        ---BEGIN CONTEXT---
+        {context_text}
+        ---END CONTEXT---
+
+        The question should be relevant to the topic of '{topic}'.
+        
+        **IMPORTANT:**
+        - If the question_type is 'reading_comprehension', you MUST use the provided context as the passage, formatted within '---BEGIN PASSAGE---' and '---END PASSAGE---'.
+        - For multiple-choice questions, provide 4 options (A, B, C, D) and clearly indicate the correct answer and a detailed explanation.
+
+        EXAMPLE FORMAT:
+        Question: [Your question text here]
+        A) Option A
+        B) Option B
+        C) Option C
+        D) Option D
+        Correct Answer: [Correct option letter or value]
+        Explanation: [Detailed explanation]
+
+        Ensure the output is in the specified format.
+        """
+        response = self.text_model.generate_content(prompt)
+        return response.text

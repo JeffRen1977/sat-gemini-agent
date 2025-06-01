@@ -1,4 +1,4 @@
-// frontend/src/services/api.js
+// sat_gemini_agent/frontend/src/services/api.js
 
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
@@ -16,6 +16,25 @@ export const generateQuestion = async (topic, difficulty, questionType) => {
     return response.json();
   } catch (error) {
     console.error("API Error - generateQuestion:", error);
+    throw error;
+  }
+};
+
+// NEW API FUNCTION: Generate Question from Database
+export const generateQuestionFromDatabase = async (queryTopic, difficulty, questionType) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/generate_question_from_db`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query_topic: queryTopic, difficulty, question_type: questionType })
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to generate question from database');
+    }
+    return response.json();
+  } catch (error) {
+    console.error("API Error - generateQuestionFromDatabase:", error);
     throw error;
   }
 };
@@ -60,10 +79,6 @@ export const getStudyPlan = async (user_performance_data) => {
   }
 };
 
-// =========================================================
-// NEW API FUNCTIONS
-// =========================================================
-
 export const saveAttempt = async (attemptData) => {
   try {
     const response = await fetch(`${API_BASE_URL}/save_attempt`, {
@@ -78,7 +93,6 @@ export const saveAttempt = async (attemptData) => {
     return response.json();
   } catch (error) {
     console.error("API Error - saveAttempt:", error);
-    // Do not re-throw if it's just a logging endpoint, continue app flow
   }
 };
 
@@ -99,18 +113,18 @@ export const getPerformanceSummary = async () => {
   }
 };
 
-export const uploadImageQuestion = async (imageDataUrls, userPromptText) => { // <--- Changed imageDataUrl to imageDataUrls (plural)
+export const uploadImageQuestion = async (imageDataUrls, userPromptText) => {
   try {
     const response = await fetch(`${API_BASE_URL}/upload_image_question`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageDataUrls, userPromptText }) // <--- Send array
+      body: JSON.stringify({ imageDataUrls, userPromptText })
     });
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || 'Failed to upload image question');
     }
-    return response.json(); // Backend will now return {..., aiResponses: [...]}
+    return response.json();
   } catch (error) {
     console.error("API Error - uploadImageQuestion:", error);
     throw error;
