@@ -7,7 +7,6 @@ function StudyPlanDisplay({ studyPlan }) {
     return null;
   }
 
-  // Check if studyPlan is an object (our new JSON response)
   const isJsonStudyPlan = typeof studyPlan === 'object' && studyPlan !== null;
 
   return (
@@ -17,16 +16,25 @@ function StudyPlanDisplay({ studyPlan }) {
         <div>
           {studyPlan.summary && <p><strong>Summary:</strong> {studyPlan.summary}</p>}
 
+          {/* MODIFIED RENDERING FOR recommended_topics */}
           {studyPlan.recommended_topics && studyPlan.recommended_topics.length > 0 && (
             <div>
               <h4>Recommended Topics:</h4>
               <ul>
                 {studyPlan.recommended_topics.map((topic, index) => (
-                  <li key={index}>{topic}</li>
+                  <li key={index}>
+                    <strong>{topic.topic_name}</strong>
+                    {topic.reason && ` (Reason: ${topic.reason})`}
+                    {topic.target_difficulty && ` (Difficulty: ${topic.target_difficulty})`}
+                    {topic.suggested_resource_types && topic.suggested_resource_types.length > 0 && (
+                      <p><em>Suggested Resources:</em> {topic.suggested_resource_types.join(', ')}</p>
+                    )}
+                  </li>
                 ))}
               </ul>
             </div>
           )}
+          {/* END MODIFIED RENDERING */}
 
           {studyPlan.practice_strategies && studyPlan.practice_strategies.length > 0 && (
             <div>
@@ -54,7 +62,6 @@ function StudyPlanDisplay({ studyPlan }) {
           {studyPlan.error && <p style={{color: 'red'}}><strong>Error from AI:</strong> {studyPlan.error} {studyPlan.details}</p>}
         </div>
       ) : (
-        // Fallback for old text-based study plan or parsing error
         <p>{studyPlan}</p>
       )}
     </div>

@@ -69,6 +69,7 @@ class GeminiService:
         return response.text
 
 
+    # MODIFIED METHOD: evaluate_and_explain
     def evaluate_and_explain(self, question, user_answer, correct_answer_info):
         EXAMPLE_JSON_OUTPUT = """
         {
@@ -79,12 +80,14 @@ class GeminiService:
           "common_misconceptions": "Some students might misinterpret the wording.",
           "correct_explanation_reiteration": [
             "Step 1: Understand the core concept.",
+            "Step 2: Apply the formula.",
             "Step 3: Calculate the result."
           ],
           "next_steps_suggestion": [
             "Practice 5 more problems of this type.",
             "Review related concepts in your textbook."
-          ]
+          ],
+          "visual_aid_suggestion": "A bar chart showing the distribution of scores across different math topics."
         }
         """
 
@@ -104,6 +107,8 @@ class GeminiService:
         Output should be a single JSON object with the following structure.
         For "correct_explanation_reiteration" and "next_steps_suggestion",
         each distinct step or suggestion should be a separate string element in the array.
+
+        Additionally, consider if a visual aid (like a diagram, chart, or graph) would significantly help the student understand the concept better. If so, include a 'visual_aid_suggestion' field with a brief, clear text description of what that visual aid should depict. If not, omit this field.
 
         EXAMPLE_JSON_OUTPUT:
         {EXAMPLE_JSON_OUTPUT}
@@ -125,17 +130,15 @@ class GeminiService:
             return {"error": "Failed to parse AI response. Please try again.", "details": str(e), "raw_response": text_response}
 
     # MODIFIED METHOD: generate_study_plan
-    def generate_study_plan(self, user_performance_data, user_profile): # MODIFIED: Added user_profile parameter
+    def generate_study_plan(self, user_performance_data, user_profile):
         """
         Generates a personalized SAT study plan based on performance data and a detailed user profile.
         """
-        # Extract user profile details
         learning_goals = user_profile.get('learning_goals', [])
         learning_style = user_profile.get('learning_style_preference', 'any')
         knowledge_level = user_profile.get('current_knowledge_level', {})
         user_preferences = user_profile.get('preferences', {})
 
-        # Convert complex objects to JSON strings for embedding in the prompt
         goals_str = json.dumps(learning_goals) if learning_goals else "None specified."
         knowledge_str = json.dumps(knowledge_level, indent=2) if knowledge_level else "Not yet assessed."
         preferences_str = json.dumps(user_preferences) if user_preferences else "None specified."
@@ -148,13 +151,13 @@ class GeminiService:
             {
               "topic_name": "Algebra: Linear Equations",
               "reason": "Consistent 'needs practice' in recent attempts.",
-              "suggested_resource_types": ["interactive exercises", "video tutorial"],
+              "suggested_resource_types": ["interactive exercises", "video tutorial", "diagrams"],
               "target_difficulty": "medium"
             },
             {
               "topic_name": "Reading: Main Idea Questions",
               "reason": "Lower accuracy in reading comprehension section, specifically main idea.",
-              "suggested_resource_types": ["practice passages", "text-based explanations"],
+              "suggested_resource_types": ["practice passages", "text-based explanations", "audio explanation"],
               "target_difficulty": "hard"
             }
           ],
@@ -187,13 +190,12 @@ class GeminiService:
 
         --- Instructions ---
         1. Analyze the performance data and knowledge level to identify strengths and weaknesses.
-        2. Tailor the plan to the user's learning goals and preferred learning style. For example, if they prefer 'visual' learning, suggest more video resources. If they are 'kinesthetic', emphasize interactive exercises.
+        2. Tailor the plan to the user's learning goals and preferred learning style. Specifically, for 'suggested_resource_types', select from "video tutorial", "interactive exercise", "diagrams", "text-based explanation", "audio explanation", "practice passages", "flashcards". Prioritize resource types that align with the user's '{learning_style}' learning style, but also suggest a variety.
         3. Provide specific, actionable recommendations.
         4. Focus on areas marked as 'needs practice' or where accuracy is low.
-        5. For `recommended_topics`, include the `topic_name`, a `reason` (linking to performance or knowledge level), `suggested_resource_types` (e.g., "video tutorial", "interactive exercises", "practice passages", "text-based explanations"), and `target_difficulty`.
+        5. For `recommended_topics`, each item should be an object with `topic_name`, a concise `reason` (linking to performance or knowledge level), `suggested_resource_types` (an array of strings), and `target_difficulty` ("easy", "medium", "hard").
 
         Output should be a single JSON object with the following structure.
-        For `recommended_topics`, each item should be an object with `topic_name`, `reason`, `suggested_resource_types` (an array of strings), and `target_difficulty`.
 
         EXAMPLE JSON OUTPUT:
         {EXAMPLE_STUDY_PLAN_JSON}

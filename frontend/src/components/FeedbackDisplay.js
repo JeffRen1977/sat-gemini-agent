@@ -19,11 +19,10 @@ function FeedbackDisplay({ feedback, onNextQuestion, loading }) {
           {feedback.explanation_comparison && <p><strong>Explanation Comparison:</strong> {feedback.explanation_comparison}</p>}
           {feedback.common_misconceptions && <p><strong>Common Misconceptions:</strong> {feedback.common_misconceptions}</p>}
 
-          {/* --- MODIFIED RENDERING FOR ARRAYS --- */}
           {feedback.correct_explanation_reiteration && feedback.correct_explanation_reiteration.length > 0 && (
             <div>
               <p><strong>Correct Explanation:</strong></p>
-              <ol> {/* Using ordered list for steps */}
+              <ol>
                 {feedback.correct_explanation_reiteration.map((step, index) => (
                   <li key={index}>{step}</li>
                 ))}
@@ -31,17 +30,22 @@ function FeedbackDisplay({ feedback, onNextQuestion, loading }) {
             </div>
           )}
 
+          {/* NEW: Display Visual Aid Suggestion */}
+          {feedback.visual_aid_suggestion && (
+            <p><strong>Visual Aid Suggestion:</strong> {feedback.visual_aid_suggestion} (Future: This could be an image here!)</p>
+          )}
+          {/* END NEW */}
+
           {feedback.next_steps_suggestion && feedback.next_steps_suggestion.length > 0 && (
             <div>
               <p><strong>Next Steps:</strong></p>
-              <ul> {/* Using unordered list for suggestions */}
+              <ul>
                 {feedback.next_steps_suggestion.map((suggestion, index) => (
                   <li key={index}>{suggestion}</li>
                 ))}
               </ul>
             </div>
           )}
-          {/* --- END MODIFIED RENDERING --- */}
 
           {feedback.error && <p style={{color: 'red'}}><strong>Error from AI:</strong> {feedback.error} {feedback.details}</p>}
         </div>
