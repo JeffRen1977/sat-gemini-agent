@@ -1,18 +1,34 @@
-import os
+# sat_gemini_agent/backend/src/vector_store.py
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from src.config import VECTOR_DB_DIR
 from src.embedding_model import get_embedding_model
+import os # Import os to check directory existence
 
 def get_vector_store():
     """Initializes and returns the Chroma vector store."""
     embedding_model = get_embedding_model()
-    # If the directory exists, it will try to load the existing collection
-    # Otherwise, it will create a new one when documents are added
-    vector_store = Chroma(
-        persist_directory=VECTOR_DB_DIR,
-        embedding_function=embedding_model
-    )
+
+    # Check if the persist_directory exists and contains data
+    if os.path.exists(VECTOR_DB_DIR) and len(os.listdir(VECTOR_DB_DIR)) > 0:
+        print(f"Loading existing ChromaDB from: {VECTOR_DB_DIR}")
+        vector_store = Chroma(
+            persist_directory=VECTOR_DB_DIR,
+            embedding_function=embedding_model
+        )
+        # Add a print to show the count of documents
+        count = vector_store._collection.count()
+        print(f"ChromaDB loaded. It contains {count} documents.")
+        if count == 0:
+            print("WARNING: The loaded ChromaDB is empty. You might need to run an ingestion script.")
+    else:
+        print(f"ChromaDB directory not found or is empty at: {VECTOR_DB_DIR}. Initializing new ChromaDB.")
+        vector_store = Chroma(
+            persist_directory=VECTOR_DB_DIR,
+            embedding_function=embedding_model
+        )
+        print("New empty ChromaDB initialized. You need to add documents to it.")
+
     return vector_store
 
 def add_documents_to_vector_store(chunks: list[Document]):
