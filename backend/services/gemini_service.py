@@ -1,14 +1,13 @@
 # backend/services/gemini_service.py
 
 import google.generativeai as genai
-import json  
-import base64 
-from io import BytesIO 
+import json
+import base64
+from io import BytesIO
 from PIL import Image
 import pandas as pd
 import re
 
-# Utility function to clean string before JSON parsing
 _CLEAN_JSON_STRING_PATTERN = re.compile(r'[\x00-\x08\x0B\x0C\x0E-\x1F\u0080-\u009F]')
 
 def _clean_json_string(s):
@@ -19,7 +18,6 @@ class GeminiService:
     def __init__(self, api_key, text_model_name='models/gemini-2.5-flash-preview-05-20', vision_model_name='gemini-pro-vision'):
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not set.")
-        #genai.configure(api_key=api_key) # This line is often part of global config, fine to keep it commented if configured elsewhere
         self.text_model_name = text_model_name
         self.vision_model_name = vision_model_name
         self.text_model = genai.GenerativeModel(self.text_model_name)
@@ -27,9 +25,6 @@ class GeminiService:
 
 
     def generate_sat_question(self, topic, difficulty="medium", question_type="multiple_choice"):
-        # This part remains mostly the same, but the prompt could eventually be
-        # enhanced to consider user's learning style from their profile.
-        # For now, we keep it as is, as the core change is the *assessment* method.
         READING_QUESTION_EXAMPLE = """
         ---BEGIN PASSAGE---
         The phenomenon of bioluminescence, the production of light by living organisms, is widespread in nature, particularly in marine environments. From the twinkling plankton in the ocean's surface to the deep-sea anglerfish with its glowing lure, bioluminescence serves various ecological functions, including attracting prey, defending against predators, and even communicating with conspecifics. While the chemical reactions involved vary among species, they generally involve a light-emitting molecule (luciferin) and an enzyme (luciferase) that catalyzes the reaction, consuming oxygen and ATP to produce light. This cold light, emitting less than 20% heat, is remarkably efficient compared to incandescent bulbs, which lose most energy as heat. The evolutionary pressures that led to such diverse and efficient light-producing mechanisms highlight the adaptive power of natural selection in response to environmental challenges.
@@ -84,7 +79,6 @@ class GeminiService:
           "common_misconceptions": "Some students might misinterpret the wording.",
           "correct_explanation_reiteration": [
             "Step 1: Understand the core concept.",
-            "Step 2: Apply the formula.",
             "Step 3: Calculate the result."
           ],
           "next_steps_suggestion": [
@@ -130,25 +124,79 @@ class GeminiService:
             print(f"Raw Gemini response: {text_response}")
             return {"error": "Failed to parse AI response. Please try again.", "details": str(e), "raw_response": text_response}
 
-    def generate_study_plan(self, user_performance_data):
-        # This method will be modified in a later step to also consider
-        # the user's learning goals and knowledge level.
+    # MODIFIED METHOD: generate_study_plan
+    def generate_study_plan(self, user_performance_data, user_profile): # MODIFIED: Added user_profile parameter
+        """
+        Generates a personalized SAT study plan based on performance data and a detailed user profile.
+        """
+        # Extract user profile details
+        learning_goals = user_profile.get('learning_goals', [])
+        learning_style = user_profile.get('learning_style_preference', 'any')
+        knowledge_level = user_profile.get('current_knowledge_level', {})
+        user_preferences = user_profile.get('preferences', {})
+
+        # Convert complex objects to JSON strings for embedding in the prompt
+        goals_str = json.dumps(learning_goals) if learning_goals else "None specified."
+        knowledge_str = json.dumps(knowledge_level, indent=2) if knowledge_level else "Not yet assessed."
+        preferences_str = json.dumps(user_preferences) if user_preferences else "None specified."
+        
+        # Example for expected structured output for the AI
+        EXAMPLE_STUDY_PLAN_JSON = """
+        {
+          "summary": "Based on your performance and goals, here's a tailored study plan designed to maximize your SAT prep efficiency. You've shown strength in [Strong Area] but need to focus on [Weak Area].",
+          "recommended_topics": [
+            {
+              "topic_name": "Algebra: Linear Equations",
+              "reason": "Consistent 'needs practice' in recent attempts.",
+              "suggested_resource_types": ["interactive exercises", "video tutorial"],
+              "target_difficulty": "medium"
+            },
+            {
+              "topic_name": "Reading: Main Idea Questions",
+              "reason": "Lower accuracy in reading comprehension section, specifically main idea.",
+              "suggested_resource_types": ["practice passages", "text-based explanations"],
+              "target_difficulty": "hard"
+            }
+          ],
+          "practice_strategies": [
+            "Dedicate 30 minutes daily to problems in your 'needs practice' areas.",
+            "Review solutions for incorrect answers thoroughly, understanding *why* you made a mistake.",
+            "Utilize timed practice tests weekly to build endurance and pacing."
+          ],
+          "study_tips": [
+            "Break down complex topics into smaller, manageable chunks.",
+            "Active recall: test yourself regularly without looking at notes.",
+            "Ensure a consistent study schedule and adequate sleep for optimal performance."
+          ],
+          "motivational_message": "Every step you take is progress. Believe in your ability to master these challenges and achieve your SAT goals!"
+        }
+        """
+
         prompt = f"""
         You are an expert SAT study coach.
-        A student has completed practice sessions with the following performance data:
+        Generate a personalized SAT study plan in JSON format based on the following student information:
+
+        --- User Performance Data (Recent Attempts) ---
         {json.dumps(user_performance_data, indent=2)}
 
-        Based on these results, provide a personalized SAT study plan in JSON format.
-        Focus on areas of weakness and suggest actionable strategies.
+        --- User Profile ---
+        Learning Goals: {goals_str}
+        Learning Style Preference: {learning_style}
+        Current Knowledge Level: {knowledge_str}
+        User Preferences: {preferences_str}
 
-        Output should be a single JSON object with the following structure:
-        {{
-          "summary": string, // A brief, encouraging summary of their overall performance.
-          "recommended_topics": [string], // A list of specific SAT topics to focus on (e.g., "Algebra: linear equations", "Reading: main idea", "Writing: subject-verb agreement").
-          "practice_strategies": [string], // Actionable advice on how to practice (e.g., "Do 10 practice problems per day on recommended topics", "Review missed questions carefully").
-          "study_tips": [string], // General study tips (e.g., "Practice under timed conditions", "Take breaks", "Review vocabulary daily").
-          "motivational_message": string // An encouraging closing message.
-        }}
+        --- Instructions ---
+        1. Analyze the performance data and knowledge level to identify strengths and weaknesses.
+        2. Tailor the plan to the user's learning goals and preferred learning style. For example, if they prefer 'visual' learning, suggest more video resources. If they are 'kinesthetic', emphasize interactive exercises.
+        3. Provide specific, actionable recommendations.
+        4. Focus on areas marked as 'needs practice' or where accuracy is low.
+        5. For `recommended_topics`, include the `topic_name`, a `reason` (linking to performance or knowledge level), `suggested_resource_types` (e.g., "video tutorial", "interactive exercises", "practice passages", "text-based explanations"), and `target_difficulty`.
+
+        Output should be a single JSON object with the following structure.
+        For `recommended_topics`, each item should be an object with `topic_name`, `reason`, `suggested_resource_types` (an array of strings), and `target_difficulty`.
+
+        EXAMPLE JSON OUTPUT:
+        {EXAMPLE_STUDY_PLAN_JSON}
 
         Ensure the output is valid JSON, enclosed in triple backticks, and contains only the JSON.
         """
@@ -166,7 +214,7 @@ class GeminiService:
             print(f"Error decoding JSON for study plan from Gemini: {e}")
             print(f"Raw Gemini response for study plan: {text_response}")
             return {"error": "Failed to parse AI study plan response. Please try again.", "details": str(e), "raw_response": text_response}
-    
+
     def analyze_image_question(self, image_base64_data, user_prompt_text):
         try:
             header, encoded = image_base64_data.split(",", 1)
@@ -221,7 +269,7 @@ class GeminiService:
         except Exception as e:
             print(f"Error in analyze_image_question: {e}")
             return {"error": "Image analysis failed.", "details": str(e)}
-    
+
     def list_available_models(self):
         print("--- Listing available Gemini Models ---")
         models_info = []
@@ -231,36 +279,6 @@ class GeminiService:
         print("\n".join(models_info))
         print("-------------------------------------")
 
-    def generate_sat_question_from_context(self, context_text: str, topic: str, difficulty: str, question_type: str):
-        prompt = f"""
-        You are an expert SAT question generator.
-        Create a {difficulty} difficulty SAT-style {question_type} question based on the following context:
-
-        ---BEGIN CONTEXT---
-        {context_text}
-        ---END CONTEXT---
-
-        The question should be relevant to the topic of '{topic}'.
-        
-        **IMPORTANT:**
-        - If the question_type is 'reading_comprehension', you MUST use the provided context as the passage, formatted within '---BEGIN PASSAGE---' and '---END PASSAGE---'.
-        - For multiple-choice questions, provide 4 options (A, B, C, D) and clearly indicate the correct answer and a detailed explanation.
-
-        EXAMPLE FORMAT:
-        Question: [Your question text here]
-        A) Option A
-        B) Option B
-        C) Option C
-        D) Option D
-        Correct Answer: [Correct option letter or value]
-        Explanation: [Detailed explanation]
-
-        Ensure the output is in the specified format.
-        """
-        response = self.text_model.generate_content(prompt)
-        return response.text
-
-    # NEW METHOD: assess_knowledge
     def assess_knowledge(self, user_id: str, user_input: str, topic_area: str = None):
         """
         Assesses a user's current knowledge based on their input, and returns
@@ -313,3 +331,32 @@ class GeminiService:
         except Exception as e:
             print(f"Error in assess_knowledge: {e}")
             return {"error": "Failed to assess knowledge.", "details": str(e)}
+
+    def generate_sat_question_from_context(self, context_text: str, topic: str, difficulty: str, question_type: str):
+        prompt = f"""
+        You are an expert SAT question generator.
+        Create a {difficulty} difficulty SAT-style {question_type} question based on the following context:
+
+        ---BEGIN CONTEXT---
+        {context_text}
+        ---END CONTEXT---
+
+        The question should be relevant to the topic of '{topic}'.
+        
+        **IMPORTANT:**
+        - If the question_type is 'reading_comprehension', you MUST use the provided context as the passage, formatted within '---BEGIN PASSAGE---' and '---END PASSAGE---'.
+        - For multiple-choice questions, provide 4 options (A, B, C, D) and clearly indicate the correct answer and a detailed explanation.
+
+        EXAMPLE FORMAT:
+        Question: [Your question text here]
+        A) Option A
+        B) Option B
+        C) Option C
+        D) Option D
+        Correct Answer: [Correct option letter or value]
+        Explanation: [Detailed explanation]
+
+        Ensure the output is in the specified format.
+        """
+        response = self.text_model.generate_content(prompt)
+        return response.text
