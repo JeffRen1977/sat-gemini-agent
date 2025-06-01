@@ -5,14 +5,11 @@ import json
 import base64 
 from io import BytesIO 
 from PIL import Image
-import pandas as pd # <--- IMPORT PANDAS
-import re # <--- ADD THIS IMPORT
+import pandas as pd
+import re
 
 # Utility function to clean string before JSON parsing
-# This regex matches any characters that are not allowed in JSON strings
-# specifically, non-escaped control characters from U+0000 to U+001F (except tab, newline, carriage return)
-# It also handles common Unicode non-breaking spaces if they cause issues.
-_CLEAN_JSON_STRING_PATTERN = re.compile(r'[\x00-\x08\x0B\x0C\x0E-\x1F\u0080-\u009F]') # ASCII control chars + some extended controls
+_CLEAN_JSON_STRING_PATTERN = re.compile(r'[\x00-\x08\x0B\x0C\x0E-\x1F\u0080-\u009F]')
 
 def _clean_json_string(s):
     """Removes invalid control characters and other problematic chars from a string for JSON parsing."""
@@ -22,16 +19,17 @@ class GeminiService:
     def __init__(self, api_key, text_model_name='models/gemini-2.5-flash-preview-05-20', vision_model_name='gemini-pro-vision'):
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not set.")
-        #genai.configure(api_key=api_key)
+        #genai.configure(api_key=api_key) # This line is often part of global config, fine to keep it commented if configured elsewhere
         self.text_model_name = text_model_name
-        self.vision_model_name = vision_model_name # Store vision model name
-        self.text_model = genai.GenerativeModel(self.text_model_name) # Use text_model
-        self.vision_model = genai.GenerativeModel(self.vision_model_name) # <--- Initialize vision model
+        self.vision_model_name = vision_model_name
+        self.text_model = genai.GenerativeModel(self.text_model_name)
+        self.vision_model = genai.GenerativeModel(self.vision_model_name)
 
 
     def generate_sat_question(self, topic, difficulty="medium", question_type="multiple_choice"):
-
-        # Define a specific example for a reading question with clear delimiters
+        # This part remains mostly the same, but the prompt could eventually be
+        # enhanced to consider user's learning style from their profile.
+        # For now, we keep it as is, as the core change is the *assessment* method.
         READING_QUESTION_EXAMPLE = """
         ---BEGIN PASSAGE---
         The phenomenon of bioluminescence, the production of light by living organisms, is widespread in nature, particularly in marine environments. From the twinkling plankton in the ocean's surface to the deep-sea anglerfish with its glowing lure, bioluminescence serves various ecological functions, including attracting prey, defending against predators, and even communicating with conspecifics. While the chemical reactions involved vary among species, they generally involve a light-emitting molecule (luciferin) and an enzyme (luciferase) that catalyzes the reaction, consuming oxygen and ATP to produce light. This cold light, emitting less than 20% heat, is remarkably efficient compared to incandescent bulbs, which lose most energy as heat. The evolutionary pressures that led to such diverse and efficient light-producing mechanisms highlight the adaptive power of natural selection in response to environmental challenges.
@@ -42,19 +40,18 @@ class GeminiService:
         B) Navigation in dark environments
         C) Attraction of prey
         D) Communication with other organisms of the same species
-        Correct Answer: B  # <-- ADD THIS BACK
-        Explanation: The passage explicitly mentions "attracting prey, defending against predators, and even communicating with conspecifics" as ecological functions. Navigation is not mentioned. # <-- ADD THIS BACK
+        Correct Answer: B
+        Explanation: The passage explicitly mentions "attracting prey, defending against predators, and even communicating with conspecifics" as ecological functions. Navigation is not mentioned.
         """
 
-        # Define the general example format, now WITH Correct Answer and Explanation
         GENERAL_EXAMPLE_FORMAT = """
         Question: [Your question text here]
         A) Option A
         B) Option B
         C) Option C
         D) Option D
-        Correct Answer: [Correct option letter or value] # <-- ADD THIS BACK
-        Explanation: [Detailed explanation] # <-- ADD THIS BACK
+        Correct Answer: [Correct option letter or value]
+        Explanation: [Detailed explanation]
         """
 
         prompt = f"""
@@ -74,14 +71,10 @@ class GeminiService:
         {READING_QUESTION_EXAMPLE}
         """
         response = self.text_model.generate_content(prompt)
-
-        # We'll parse the full response to extract Correct Answer and Explanation in dataParser.js
-        # and these will be used for evaluation, but *not* displayed by QuestionDisplay.js
         return response.text
 
 
     def evaluate_and_explain(self, question, user_answer, correct_answer_info):
-        # Define an example JSON output to guide the model
         EXAMPLE_JSON_OUTPUT = """
         {
           "is_correct": true,
@@ -131,15 +124,15 @@ class GeminiService:
             json_string = text_response.strip()
 
         try:
-            # We'll return the parsed JSON directly for the frontend to consume
             return json.loads(json_string)
         except json.JSONDecodeError as e:
             print(f"Error decoding JSON from Gemini: {e}")
             print(f"Raw Gemini response: {text_response}")
-            # Fallback to a basic text response if JSON parsing fails
             return {"error": "Failed to parse AI response. Please try again.", "details": str(e), "raw_response": text_response}
 
     def generate_study_plan(self, user_performance_data):
+        # This method will be modified in a later step to also consider
+        # the user's learning goals and knowledge level.
         prompt = f"""
         You are an expert SAT study coach.
         A student has completed practice sessions with the following performance data:
@@ -174,22 +167,12 @@ class GeminiService:
             print(f"Raw Gemini response for study plan: {text_response}")
             return {"error": "Failed to parse AI study plan response. Please try again.", "details": str(e), "raw_response": text_response}
     
-    # =========================================================
-    # NEW METHOD: Analyze Image Question
-    # =========================================================
     def analyze_image_question(self, image_base64_data, user_prompt_text):
         try:
-            # Decode the base64 image data
-            # image_base64_data will be 'data:image/png;base64,iVBORw0KGgoAAA...'
-            # We need to strip the header and decode
             header, encoded = image_base64_data.split(",", 1)
             image_data_bytes = base64.b64decode(encoded)
-
-            # Create PIL Image object from bytes
             img = Image.open(BytesIO(image_data_bytes))
 
-            # Prepare the content for Gemini Vision Pro
-            # The prompt is a list of parts: text and image
             content = [
                 user_prompt_text,
                 img
@@ -219,17 +202,14 @@ class GeminiService:
             Ensure the output is valid JSON, enclosed in triple backticks, and contains only the JSON.
             """
 
-            response = self.vision_model.generate_content([vision_prompt_instructions, img, user_prompt_text]) # Send all parts
+            response = self.vision_model.generate_content([vision_prompt_instructions, img, user_prompt_text])
             text_response = response.text
-
             if text_response.startswith("```json") and text_response.endswith("```"):
                 json_string = text_response[7:-3].strip()
             else:
                 json_string = text_response.strip()
 
-             # --- ADD THIS LINE TO CLEAN THE STRING ---
             json_string = _clean_json_string(json_string)
-            # --- END ADDITION ---
 
             try:
                 return json.loads(json_string)
@@ -242,7 +222,6 @@ class GeminiService:
             print(f"Error in analyze_image_question: {e}")
             return {"error": "Image analysis failed.", "details": str(e)}
     
-    # --- ADD THIS NEW METHOD ---
     def list_available_models(self):
         print("--- Listing available Gemini Models ---")
         models_info = []
@@ -252,7 +231,6 @@ class GeminiService:
         print("\n".join(models_info))
         print("-------------------------------------")
 
-    # NEW METHOD: Generate SAT Question from Context
     def generate_sat_question_from_context(self, context_text: str, topic: str, difficulty: str, question_type: str):
         prompt = f"""
         You are an expert SAT question generator.
@@ -281,3 +259,57 @@ class GeminiService:
         """
         response = self.text_model.generate_content(prompt)
         return response.text
+
+    # NEW METHOD: assess_knowledge
+    def assess_knowledge(self, user_id: str, user_input: str, topic_area: str = None):
+        """
+        Assesses a user's current knowledge based on their input, and returns
+        a structured JSON of their knowledge level across various topics.
+        """
+        prompt = f"""
+        You are an expert SAT tutor. Your task is to assess a student's current knowledge level
+        in relevant SAT topics based on their provided input.
+
+        The input can be a free-form description from the student (e.g., "I'm good at algebra but struggle with reading comprehension")
+        or a summary of their performance on a diagnostic quiz.
+
+        Based on the user's input, infer their proficiency in key SAT areas.
+        If a specific topic area is provided, focus the assessment within that domain.
+
+        Return your assessment as a single JSON object.
+        The keys should be broad SAT topic areas (e.g., "Math: Algebra", "Math: Geometry", "Reading: Main Idea", "Writing: Grammar", etc.)
+        and the values should be one of: "beginner", "intermediate", "advanced", or "needs practice".
+        If a topic is not mentioned or cannot be inferred, you can omit it or mark as "unknown".
+
+        User ID: {user_id}
+        User Input: {user_input}
+        {'Specific Topic Area to Focus On: ' + topic_area if topic_area else ''}
+
+        EXAMPLE JSON OUTPUT:
+        ```json
+        {{
+          "Math: Algebra": "intermediate",
+          "Math: Geometry": "needs practice",
+          "Reading: Main Idea": "advanced",
+          "Writing: Essay Structure": "beginner",
+          "Overall Aptitude": "intermediate"
+        }}
+        ```
+
+        Ensure the output is valid JSON, enclosed in triple backticks, and contains only the JSON.
+        """
+        try:
+            response = self.text_model.generate_content(prompt)
+            text_response = response.text
+
+            if text_response.startswith("```json") and text_response.endswith("```"):
+                json_string = text_response[7:-3].strip()
+            else:
+                json_string = text_response.strip()
+
+            json_string = _clean_json_string(json_string)
+
+            return json.loads(json_string)
+        except Exception as e:
+            print(f"Error in assess_knowledge: {e}")
+            return {"error": "Failed to assess knowledge.", "details": str(e)}
