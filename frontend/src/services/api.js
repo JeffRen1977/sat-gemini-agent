@@ -153,7 +153,6 @@ export const manageUserProfile = async (userData) => {
   }
 };
 
-// MODIFIED API FUNCTION: Get User Profile
 export const getUserProfile = async (usernameOrId) => {
   try {
     const queryParam = typeof usernameOrId === 'number' ? `user_id=${usernameOrId}` : `username=${usernameOrId}`;
@@ -162,8 +161,7 @@ export const getUserProfile = async (usernameOrId) => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    // --- MODIFIED LOGIC HERE ---
-    if (response.status === 404) { // If user not found, return null instead of throwing error
+    if (response.status === 404) {
       return null;
     }
     if (!response.ok) {
@@ -171,11 +169,9 @@ export const getUserProfile = async (usernameOrId) => {
       throw new Error(errorData.error || 'Failed to get user profile');
     }
     return response.json();
-    // --- END MODIFIED LOGIC ---
 
   } catch (error) {
     console.error("API Error - getUserProfile:", error);
-    // If it's a network error or other unhandled error, still re-throw
     throw error;
   }
 };
@@ -194,6 +190,44 @@ export const assessKnowledge = async (userId, userInput, topicArea = null) => {
     return response.json();
   } catch (error) {
     console.error("API Error - assessKnowledge:", error);
+    throw error;
+  }
+};
+
+// NEW API FUNCTION: Start Chat Session
+export const startChatSession = async (userId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/chat/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId })
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to start chat session');
+    }
+    return response.json();
+  } catch (error) {
+    console.error("API Error - startChatSession:", error);
+    throw error;
+  }
+};
+
+// NEW API FUNCTION: Send Chat Message
+export const sendChatMessage = async (userId, message) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/chat/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, message: message })
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to send chat message');
+    }
+    return response.json();
+  } catch (error) {
+    console.error("API Error - sendChatMessage:", error);
     throw error;
   }
 };

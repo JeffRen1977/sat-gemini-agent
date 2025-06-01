@@ -22,6 +22,8 @@ class GeminiService:
         self.vision_model_name = vision_model_name
         self.text_model = genai.GenerativeModel(self.text_model_name)
         self.vision_model = genai.GenerativeModel(self.vision_model_name)
+        # NEW: Store active chat sessions. For production, use a persistent store (e.g., Redis, database).
+        self.active_chat_sessions = {} # Maps user_id to Gemini ChatSession objects
 
 
     def generate_sat_question(self, topic, difficulty="medium", question_type="multiple_choice"):
@@ -69,7 +71,6 @@ class GeminiService:
         return response.text
 
 
-    # MODIFIED METHOD: evaluate_and_explain
     def evaluate_and_explain(self, question, user_answer, correct_answer_info):
         EXAMPLE_JSON_OUTPUT = """
         {
@@ -129,11 +130,8 @@ class GeminiService:
             print(f"Raw Gemini response: {text_response}")
             return {"error": "Failed to parse AI response. Please try again.", "details": str(e), "raw_response": text_response}
 
-    # MODIFIED METHOD: generate_study_plan
     def generate_study_plan(self, user_performance_data, user_profile):
-        """
-        Generates a personalized SAT study plan based on performance data and a detailed user profile.
-        """
+        # ... (unchanged for this step) ...
         learning_goals = user_profile.get('learning_goals', [])
         learning_style = user_profile.get('learning_style_preference', 'any')
         knowledge_level = user_profile.get('current_knowledge_level', {})
@@ -143,7 +141,6 @@ class GeminiService:
         knowledge_str = json.dumps(knowledge_level, indent=2) if knowledge_level else "Not yet assessed."
         preferences_str = json.dumps(user_preferences) if user_preferences else "None specified."
         
-        # Example for expected structured output for the AI
         EXAMPLE_STUDY_PLAN_JSON = """
         {
           "summary": "Based on your performance and goals, here's a tailored study plan designed to maximize your SAT prep efficiency. You've shown strength in [Strong Area] but need to focus on [Weak Area].",
@@ -362,3 +359,107 @@ class GeminiService:
         """
         response = self.text_model.generate_content(prompt)
         return response.text
+
+    # NEW METHOD: start_chat_session
+    def start_chat_session(self, user_id: int, user_profile: dict):
+        """
+        Starts a new chat session with the Gemini model for a specific user,
+        setting up the tutor's persona based on user profile.
+        Returns true if session started, false if already exists.
+        """
+        if user_id in self.active_chat_sessions:
+            # Optionally clear existing chat history if starting a new one
+            # self.active_chat_sessions[user_id] = self.text_model.start_chat(history=[])
+            return {"message": "Chat session already active for this user."}
+        
+        # Prepare system instructions based on user profile
+        learning_goals = user_profile.get('learning_goals', [])
+        learning_style = user_profile.get('learning_style_preference', 'any')
+        knowledge_level = user_profile.get('current_knowledge_level', {})
+        
+        system_instruction_prompt = f"""
+        You are an incredibly supportive, knowledgeable, and patient SAT tutor.
+        Your goal is to guide the student, clarify concepts, break down problems,
+        identify misconceptions, and suggest effective learning strategies and resources.
+
+        The student's profile indicates:
+        - Learning Goals: {json.dumps(learning_goals)}
+        - Learning Style Preference: {learning_style}
+        - Current Knowledge Level: {json.dumps(knowledge_level, indent=2)}
+
+        When responding, consider their learning style:
+        - For 'visual' learners: Suggest diagrams, flowcharts, or visual examples.
+        - For 'auditory' learners: Suggest verbal explanations, analogies, or thinking out loud.
+        - For 'kinesthetic' learners: Suggest interactive problems, hands-on activities, or real-world applications.
+        - For 'reading/writing' learners: Suggest detailed explanations, summaries, or practice writing.
+
+        Always be encouraging and break down complex ideas into understandable parts.
+        Do not give direct answers immediately; instead, guide them to the solution with hints or questions.
+        If they ask for an explanation for a previously solved problem, explain it step by step.
+        """
+        
+        # Start a new chat session with the model and store it
+        self.active_chat_sessions[user_id] = self.text_model.start_chat(
+            history=[],
+            # Gemini 1.5 allows system_instruction in start_chat
+            # For Gemini 2.5 flash, system_instruction might be less direct
+            # and may need to be injected as the first message or implicit in the prompt
+            # For this example, we'll assume it works implicitly via the context provided.
+            # A more robust solution for system instructions would be to bake it into the initial prompt.
+        )
+        # For effective system instruction in continuous chat, it's often best to send a "system" message
+        # or incorporate the persona strongly in the first AI response.
+        # Here, we'll try to establish it in the general prompt for send_chat_message.
+
+        print(f"Started new chat session for user {user_id}")
+        return {"message": "Chat session started successfully!"}
+
+    # NEW METHOD: send_chat_message
+    def send_chat_message(self, user_id: int, message: str, user_profile: dict):
+        """
+        Sends a message to the active chat session for a user and gets a response.
+        """
+        chat_session = self.active_chat_sessions.get(user_id)
+        if not chat_session:
+            return {"error": "No active chat session found for this user. Please start a new session."}
+
+        # Dynamically inject relevant user profile context for each turn,
+        # especially for adaptive guidance. This is crucial for maintaining persona.
+        learning_goals = user_profile.get('learning_goals', [])
+        learning_style = user_profile.get('learning_style_preference', 'any')
+        knowledge_level = user_profile.get('current_knowledge_level', {})
+
+        # Craft the prompt for this turn, reminding the AI of its role and user context
+        # This approach embeds the "system instruction" with each turn, which is robust
+        # even if start_chat's system_instruction isn't fully utilized or persistent.
+        turn_prompt = f"""
+        You are an incredibly supportive, knowledgeable, and patient SAT tutor.
+        Your goal is to guide the student, clarify concepts, break down problems,
+        identify misconceptions, and suggest effective learning strategies and resources.
+
+        The student's profile indicates:
+        - Learning Goals: {json.dumps(learning_goals)}
+        - Learning Style Preference: {learning_style}
+        - Current Knowledge Level: {json.dumps(knowledge_level, indent=2)}
+
+        When responding, consider their learning style:
+        - For 'visual' learners: Suggest diagrams, flowcharts, or visual examples.
+        - For 'auditory' learners: Suggest verbal explanations, analogies, or thinking out loud.
+        - For 'kinesthetic' learners: Suggest interactive problems, hands-on activities, or real-world applications.
+        - For 'reading/writing' learners: Suggest detailed explanations, summaries, or practice writing.
+
+        Always be encouraging and break down complex ideas into understandable parts.
+        Do not give direct answers immediately; instead, guide them to the solution with hints or questions.
+        If they ask for an explanation for a previously solved problem, explain it step by step.
+
+        Student's current message: {message}
+        """
+
+        try:
+            # Use the .send_message method of the chat session
+            # This maintains the conversation history internally for Gemini.
+            response = chat_session.send_message(turn_prompt)
+            return {"ai_response": response.text}
+        except Exception as e:
+            print(f"Error sending chat message for user {user_id}: {e}")
+            return {"error": f"Failed to get AI response: {str(e)}"}

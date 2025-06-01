@@ -10,13 +10,16 @@ import {
   generateQuestionFromDatabase,
   manageUserProfile,
   getUserProfile,
-  assessKnowledge
+  assessKnowledge,
+  startChatSession, // NEW: Import startChatSession
+  sendChatMessage   // NEW: Import sendChatMessage (though used in ChatInterface)
 } from './services/api';
 import { parseQuestionText } from './utils/dataParser';
 import QuestionDisplay from './components/QuestionDisplay';
 import FeedbackDisplay from './components/FeedbackDisplay';
 import StudyPlanDisplay from './components/StudyPlanDisplay';
 import ImageQuestionDisplay from './components/ImageQuestionDisplay';
+import ChatInterface from './components/ChatInterface'; // NEW: Import ChatInterface
 import './App.css';
 
 function App() {
@@ -25,6 +28,7 @@ function App() {
   const [username, setUsername] = useState('');
   const [userProfile, setUserProfile] = useState(null);
   const [initialKnowledgeInput, setInitialKnowledgeInput] = useState('');
+  const [showChat, setShowChat] = useState(false); // NEW: State to control chat visibility
 
   // --- EXISTING QUESTION STATES ---
   const [questionText, setQuestionText] = useState(null);
@@ -73,12 +77,10 @@ function App() {
     try {
       const existingUserResponse = await getUserProfile(username.trim());
 
-      // --- MODIFIED LOGIC HERE ---
       let user = null;
       if (existingUserResponse && existingUserResponse.user) {
           user = existingUserResponse.user;
       }
-      // --- END MODIFIED LOGIC ---
 
       if (user) {
         setCurrentUserId(user.id);
@@ -87,7 +89,6 @@ function App() {
         localStorage.setItem('currentUsername', user.username);
         alert(`Welcome back, ${user.username}!`);
       } else {
-        // User does not exist, register new user
         const newUserResponse = await manageUserProfile({ username: username.trim() });
         setCurrentUserId(newUserResponse.user.id);
         setUserProfile(newUserResponse.user);
@@ -107,11 +108,10 @@ function App() {
     setLoading(true);
     try {
       const response = await getUserProfile(userId);
-      // Ensure response is not null before setting profile
-      if (response && response.user) { // Safely check response and its user property
+      if (response && response.user) {
         setUserProfile(response.user);
       } else {
-        setUserProfile(null); // Clear profile if not found
+        setUserProfile(null);
         console.warn(`User profile for ID ${userId} not found.`);
       }
     } catch (error) {
@@ -347,7 +347,6 @@ function App() {
     });
   };
 
-
   return (
     <div className="App">
       <h1>SAT Gemini Agent</h1>
@@ -408,6 +407,27 @@ function App() {
       )}
       <hr />
       {/* --- END User Management Section --- */}
+
+      {/* NEW: Chat Tutor Button */}
+      {currentUserId && (
+        <div className="chat-button-container">
+          <button onClick={() => setShowChat(!showChat)} disabled={loading}>
+            {showChat ? 'Hide AI Tutor' : 'Chat with AI Tutor'}
+          </button>
+        </div>
+      )}
+      {/* END NEW */}
+
+      {/* NEW: Chat Interface Component */}
+      {showChat && currentUserId && userProfile && (
+        <ChatInterface
+          userId={currentUserId}
+          userProfile={userProfile}
+          onClose={() => setShowChat(false)}
+        />
+      )}
+      {/* END NEW */}
+
 
       <h2>Text-Based Practice Questions (AI Generated)</h2>
       <button onClick={() => fetchNewQuestion('algebra word problems', 'medium', 'multiple_choice')} disabled={loading || !currentUserId}>
