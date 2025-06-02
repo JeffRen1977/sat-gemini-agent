@@ -231,3 +231,60 @@ export const sendChatMessage = async (userId, message) => {
     throw error;
   }
 };
+
+// NEW API FUNCTION: Start Simulation Session (Step 8)
+export const startSimulationSession = async (userId, simulationType) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/simulate/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, simulation_type: simulationType })
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to start simulation session');
+    }
+    return response.json();
+  } catch (error) {
+    console.error("API Error - startSimulationSession:", error);
+    throw error;
+  }
+};
+
+// NEW API FUNCTION: Send Simulation Message (Step 8)
+export const sendSimulationMessage = async (userId, simulationType, userMessage, chatHistory) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/simulate/respond`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, simulation_type: simulationType, user_message: userMessage, chat_history: chatHistory })
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to send simulation message');
+    }
+    return response.json();
+  } catch (error) {
+    console.error("API Error - sendSimulationMessage:", error);
+    throw error;
+  }
+};
+
+// NEW API FUNCTION: Get User Achievements
+export const getUserAchievements = async (userId) => {
+  try {
+    const url = `${API_BASE_URL}/user/achievements?user_id=${userId}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to get user achievements');
+    }
+    return response.json();
+  } catch (error) {
+    console.error("API Error - getUserAchievements:", error);
+    throw error;
+  }
+};

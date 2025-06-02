@@ -463,3 +463,32 @@ class GeminiService:
         except Exception as e:
             print(f"Error sending chat message for user {user_id}: {e}")
             return {"error": f"Failed to get AI response: {str(e)}"}
+        
+
+    def simulate_interview(self, user_id: int, simulation_type: str, user_input: str, chat_history: list = None):
+        """
+        Simulates an interactive interview or scenario-based learning session.
+        """
+        if chat_history is None:
+            chat_history = []
+
+        system_prompt = f"""
+        You are an AI simulating a {simulation_type} for an SAT student.
+        Your goal is to provide a realistic and challenging experience.
+        Based on the user's input, respond as the interviewer or scenario-provider.
+        Maintain context and guide the conversation.
+        If the simulation type is 'SAT essay writing', prompt the user for essay responses and evaluate them.
+        If the simulation type is 'college application interview', act as an interviewer.
+        """
+        
+        full_prompt_parts = [{"role": "user", "parts": [system_prompt]}]
+        for chat_item in chat_history:
+            full_prompt_parts.append({"role": chat_item['role'], "parts": [chat_item['text']]})
+        full_prompt_parts.append({"role": "user", "parts": [user_input]})
+
+        try:
+            response = self.text_model.generate_content(full_prompt_parts)
+            return {"simulation_response": response.text}
+        except Exception as e:
+            print(f"Error in simulate_interview: {e}")
+            return {"error": f"Failed to run simulation: {str(e)}"}

@@ -11,15 +11,20 @@ import {
   manageUserProfile,
   getUserProfile,
   assessKnowledge,
-  startChatSession, // NEW: Import startChatSession
-  sendChatMessage   // NEW: Import sendChatMessage (though used in ChatInterface)
+  startChatSession, 
+  sendChatMessage,  
+  startSimulationSession, 
+  sendSimulationMessage,  
+  getUserAchievements     
 } from './services/api';
 import { parseQuestionText } from './utils/dataParser';
 import QuestionDisplay from './components/QuestionDisplay';
 import FeedbackDisplay from './components/FeedbackDisplay';
 import StudyPlanDisplay from './components/StudyPlanDisplay';
 import ImageQuestionDisplay from './components/ImageQuestionDisplay';
-import ChatInterface from './components/ChatInterface'; // NEW: Import ChatInterface
+import ChatInterface from './components/ChatInterface';
+import SimulationComponent from './components/SimulationComponent'; 
+import ProgressDashboard from './components/ProgressDashboard'; 
 import './App.css';
 
 function App() {
@@ -46,6 +51,10 @@ function App() {
   const [imageDataUrls, setImageDataUrls] = useState([]);
   const [imageQuestionText, setImageQuestionText] = useState('');
   const [imageAnalysisResults, setImageAnalysisResults] = useState([]);
+
+
+  const [showSimulation, setShowSimulation] = useState(false); // NEW: State for simulation visibility
+  const [showProgress, setShowProgress] = useState(false);     // NEW: State for progress dashboard visibility
 
   // --- DB QUESTION GENERATION STATE ---
   const [dbQueryTopic, setDbQueryTopic] = useState('');
@@ -408,17 +417,24 @@ function App() {
       <hr />
       {/* --- END User Management Section --- */}
 
-      {/* NEW: Chat Tutor Button */}
-      {currentUserId && (
-        <div className="chat-button-container">
+
+      {/* NEW: Engagement & Gamification Buttons (Step 8 & 9) */}
+      {currentUserId && ( // This condition must be met for the buttons to render
+        <div className="engagement-buttons">
           <button onClick={() => setShowChat(!showChat)} disabled={loading}>
             {showChat ? 'Hide AI Tutor' : 'Chat with AI Tutor'}
+          </button>
+          <button onClick={() => setShowSimulation(!showSimulation)} disabled={loading}>
+            {showSimulation ? 'Hide Simulation' : 'Start Simulated Practice'}
+          </button>
+          <button onClick={() => setShowProgress(!showProgress)} disabled={loading}>
+            {showProgress ? 'Hide Progress' : 'View Progress & Achievements'}
           </button>
         </div>
       )}
       {/* END NEW */}
 
-      {/* NEW: Chat Interface Component */}
+      
       {showChat && currentUserId && userProfile && (
         <ChatInterface
           userId={currentUserId}
@@ -426,7 +442,20 @@ function App() {
           onClose={() => setShowChat(false)}
         />
       )}
-      {/* END NEW */}
+
+      {showSimulation && currentUserId && (
+        <SimulationComponent
+          userId={currentUserId}
+          onClose={() => setShowSimulation(false)}
+        />
+      )}
+
+      {showProgress && currentUserId && (
+        <ProgressDashboard
+          userId={currentUserId}
+          onClose={() => setShowProgress(false)}
+        />
+      )}
 
 
       <h2>Text-Based Practice Questions (AI Generated)</h2>

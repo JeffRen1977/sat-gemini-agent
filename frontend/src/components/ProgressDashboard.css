@@ -1,0 +1,70 @@
+/* frontend/src/components/ProgressDashboard.css */
+
+.progress-dashboard-container {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 700px;
+  margin: 20px auto;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-height: 80vh;
+  overflow-y: auto;
+  z-index: 1001;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.dashboard-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.dashboard-header .close-button {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 1.2em;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.dashboard-section {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 5px;
+  background-color: #fafafa;
+}
+
+.dashboard-section h4 {
+  color: #007bff;
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.dashboard-section ul {
+  list-style-type: disc;
+  padding-left: 20px;
+}
+
+.dashboard-section li {
+  margin-bottom: 5px;
+}
+
+.dashboard-section p {
+  color: #666;
+  font-style: italic;
+}
