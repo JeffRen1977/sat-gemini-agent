@@ -36,6 +36,32 @@ function FeedbackDisplay({ feedback, onNextQuestion, loading }) {
           )}
           {/* END NEW */}
 
+          {/* NEW: Display Topic Sub-skills Evaluated (Step 7) */}
+          {feedback.topic_sub_skills_evaluated && feedback.topic_sub_skills_evaluated.length > 0 && (
+            <div>
+              <p><strong>Sub-skills Evaluated:</strong></p>
+              <ul>
+                {feedback.topic_sub_skills_evaluated.map((skill, index) => (
+                  <li key={index}>{skill}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* END NEW */}
+
+          {/* NEW: Display Misconceptions Identified (Step 7) */}
+          {feedback.misconceptions_identified && feedback.misconceptions_identified.length > 0 && (
+            <div>
+              <p><strong>Misconceptions Identified:</strong></p>
+              <ul>
+                {feedback.misconceptions_identified.map((misconception, index) => (
+                  <li key={index}>{misconception}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* END NEW */}
+
           {feedback.next_steps_suggestion && feedback.next_steps_suggestion.length > 0 && (
             <div>
               <p><strong>Next Steps:</strong></p>

@@ -26,7 +26,7 @@ class GeminiService:
         self.active_chat_sessions = {} # Maps user_id to Gemini ChatSession objects
 
 
-    def generate_sat_question(self, topic, difficulty="medium", question_type="multiple_choice"):
+    def generate_sat_question(self, topic, difficulty="medium", question_type="multiple_choice", user_knowledge_level={}):
         READING_QUESTION_EXAMPLE = """
         ---BEGIN PASSAGE---
         The phenomenon of bioluminescence, the production of light by living organisms, is widespread in nature, particularly in marine environments. From the twinkling plankton in the ocean's surface to the deep-sea anglerfish with its glowing lure, bioluminescence serves various ecological functions, including attracting prey, defending against predators, and even communicating with conspecifics. While the chemical reactions involved vary among species, they generally involve a light-emitting molecule (luciferin) and an enzyme (luciferase) that catalyzes the reaction, consuming oxygen and ATP to produce light. This cold light, emitting less than 20% heat, is remarkably efficient compared to incandescent bulbs, which lose most energy as heat. The evolutionary pressures that led to such diverse and efficient light-producing mechanisms highlight the adaptive power of natural selection in response to environmental challenges.
@@ -51,9 +51,31 @@ class GeminiService:
         Explanation: [Detailed explanation]
         """
 
-        prompt = f"""
-        Generate a {difficulty} difficulty SAT-style {question_type} question on the topic of {topic}.
+                # Adaptive difficulty logic (Step 6)
+        adjusted_difficulty = difficulty
+        if user_knowledge_level:
+            # Example: Adjust difficulty based on a specific topic's knowledge level
+            # This is a simplified example; a real implementation would be more nuanced.
+            math_level = user_knowledge_level.get('Math: Algebra') or user_knowledge_level.get('Math: Geometry')
+            reading_level = user_knowledge_level.get('Reading: Main Idea') or user_knowledge_level.get('Reading: Vocabulary')
 
+            if "math" in topic.lower() and math_level:
+                if math_level == "needs practice" or math_level == "beginner":
+                    adjusted_difficulty = "easy"
+                elif math_level == "advanced":
+                    adjusted_difficulty = "hard"
+            elif "reading" in topic.lower() and reading_level:
+                if reading_level == "needs practice" or reading_level == "beginner":
+                    adjusted_difficulty = "easy"
+                elif reading_level == "advanced":
+                    adjusted_difficulty = "hard"
+        
+        knowledge_context = f"Student's current knowledge level: {json.dumps(user_knowledge_level)}. Adjust difficulty accordingly." if user_knowledge_level else ""
+
+
+        prompt = f"""
+        Generate a {adjusted_difficulty} difficulty SAT-style {question_type} question on the topic of {topic}. {knowledge_context}
+        
         **IMPORTANT:**
         - If the question_type is 'reading_comprehension', you MUST provide a short passage FIRST. The passage must be enclosed between '---BEGIN PASSAGE---' and '---END PASSAGE---'.
         - Then, after the passage, provide the multiple-choice question, followed by options, correct answer, and explanation.
@@ -89,9 +111,12 @@ class GeminiService:
             "Review related concepts in your textbook."
           ],
           "visual_aid_suggestion": "A bar chart showing the distribution of scores across different math topics."
+          "topic_sub_skills_evaluated": ["algebra: linear equations", "problem solving: word problems"],
+          "misconceptions_identified": ["confusing addition with multiplication" (if applicable)]    
         }
         """
 
+      # Refined prompt for evaluate_and_explain (Step 7)
         prompt = f"""
         You are an expert SAT tutor.
         Analyze the student's answer to the given SAT question.
@@ -105,11 +130,15 @@ class GeminiService:
         Correct Answer: {correct_answer_info['answer']}
         Detailed Explanation for Correct Answer: {correct_answer_info['explanation']}
 
-        Output should be a single JSON object with the following structure.
-        For "correct_explanation_reiteration" and "next_steps_suggestion",
-        each distinct step or suggestion should be a separate string element in the array.
-
-        Additionally, consider if a visual aid (like a diagram, chart, or graph) would significantly help the student understand the concept better. If so, include a 'visual_aid_suggestion' field with a brief, clear text description of what that visual aid should depict. If not, omit this field.
+        **IMPORTANT INSTRUCTIONS FOR JSON OUTPUT:**
+        - Include `is_correct` (boolean), `feedback_summary` (string), `personal_feedback` (string).
+        - Provide `explanation_comparison` (comparing user's approach to correct one).
+        - Identify `common_misconceptions` as a string if the user's answer suggests one.
+        - Reiterate `correct_explanation_reiteration` as an array of step-by-step strings.
+        - Suggest `next_steps_suggestion` as an array of strings.
+        - Include a `visual_aid_suggestion` (text description) if a visual would help understanding.
+        - NEW: Provide `topic_sub_skills_evaluated` as an array of strings (e.g., ["algebra: linear equations", "reading: main idea"]).
+        - NEW: Provide `misconceptions_identified` as an array of strings if specific misconceptions are evident from the user's answer. If none, provide an empty array.
 
         EXAMPLE_JSON_OUTPUT:
         {EXAMPLE_JSON_OUTPUT}
@@ -129,6 +158,7 @@ class GeminiService:
             print(f"Error decoding JSON from Gemini: {e}")
             print(f"Raw Gemini response: {text_response}")
             return {"error": "Failed to parse AI response. Please try again.", "details": str(e), "raw_response": text_response}
+
 
     def generate_study_plan(self, user_performance_data, user_profile):
         # ... (unchanged for this step) ...
@@ -331,16 +361,37 @@ class GeminiService:
             print(f"Error in assess_knowledge: {e}")
             return {"error": "Failed to assess knowledge.", "details": str(e)}
 
-    def generate_sat_question_from_context(self, context_text: str, topic: str, difficulty: str, question_type: str):
+    def generate_sat_question_from_context(self, context_text: str, topic: str, difficulty: str, question_type: str,user_knowledge_level={}):
+
+
+        adjusted_difficulty = difficulty
+        if user_knowledge_level:
+            math_level = user_knowledge_level.get('Math: Algebra') or user_knowledge_level.get('Math: Geometry')
+            reading_level = user_knowledge_level.get('Reading: Main Idea') or user_knowledge_level.get('Reading: Vocabulary')
+
+            if "math" in topic.lower() and math_level:
+                if math_level == "needs practice" or math_level == "beginner":
+                    adjusted_difficulty = "easy"
+                elif math_level == "advanced":
+                    adjusted_difficulty = "hard"
+            elif "reading" in topic.lower() and reading_level:
+                if reading_level == "needs practice" or reading_level == "beginner":
+                    adjusted_difficulty = "easy"
+                elif reading_level == "advanced":
+                    adjusted_difficulty = "hard"
+
+        knowledge_context = f"Student's current knowledge level: {json.dumps(user_knowledge_level)}. Adjust difficulty accordingly." if user_knowledge_level else ""
+
         prompt = f"""
         You are an expert SAT question generator.
-        Create a {difficulty} difficulty SAT-style {question_type} question based on the following context:
+        Create a {adjusted_difficulty} difficulty SAT-style {question_type} question based on the following context:
 
         ---BEGIN CONTEXT---
         {context_text}
         ---END CONTEXT---
 
         The question should be relevant to the topic of '{topic}'.
+        {knowledge_context}
         
         **IMPORTANT:**
         - If the question_type is 'reading_comprehension', you MUST use the provided context as the passage, formatted within '---BEGIN PASSAGE---' and '---END PASSAGE---'.
