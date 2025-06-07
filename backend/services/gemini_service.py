@@ -580,7 +580,6 @@ class GeminiService:
         full_prompt_parts = [{"role": "user", "parts": [system_prompt]}]
         for chat_item in chat_history:
             full_prompt_parts.append({"role": chat_item['role'], "parts": [chat_item['text']]})
-        # Corrected: Closing bracket for `user_input` list
         full_prompt_parts.append({"role": "user", "parts": [user_input]}) 
 
         try:
@@ -708,4 +707,5 @@ class GeminiService:
         except Exception as e:
             print(f"Unexpected error in analyze_essay: {e}")
             return {"error": "An unexpected error occurred during essay analysis.", "details": str(e)}
+
 
