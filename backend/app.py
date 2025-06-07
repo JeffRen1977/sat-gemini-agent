@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from services.gemini_service import GeminiService
 from flask_cors import CORS
-from flask_sqlalchemy import Pagination
+#from flask_sqlalchemy import Pagination
 from models import db, QuestionAttempt, User, MockTest, MockTestSection, UserMockTestAttempt, Word, WordList, UserWordProgress, EssayTopic, UserEssaySubmission # Import Essay models
 import pandas as pd
 from src.retriever import get_retriever

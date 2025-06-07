@@ -136,6 +136,7 @@ function ProgressDashboard({ userId, onClose }) {
         )}
       </div>
 
+      {/*
       <div className="dashboard-section">
         <h4>Key Progress Metrics:</h4>
         {progressMetrics && Object.keys(progressMetrics).length > 0 ? (
@@ -150,6 +151,7 @@ function ProgressDashboard({ userId, onClose }) {
           <p>No progress metrics available yet. Keep practicing!</p>
         )}
       </div>
+      */}
 
       <div className="dashboard-section">
         <h4>Achievements:</h4>
