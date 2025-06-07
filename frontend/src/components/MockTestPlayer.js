@@ -183,6 +183,7 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
   }, [attemptId, currentSectionOrder, userId, userAnswers, currentSectionData, loadSection, onCompleteTest, isSubmitting, sectionStartTime]); // Added sectionStartTime
 
 
+
   if (isLoading && !currentSectionData) { // Show initial loading for the whole test
     return <p className="loading-message">Loading test player...</p>;
   }

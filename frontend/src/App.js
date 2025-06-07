@@ -11,10 +11,28 @@ import {
   manageUserProfile,
   getUserProfile,
   assessKnowledge,
-  // Removed: startChatSession, sendChatMessage, startSimulationSession, sendSimulationMessage, getUserAchievements,
-  // Removed Mock Test API Functions as they are used in child components now
-  // Removed Vocabulary API Functions as they are used in child components now
-  // Removed Essay API Functions (except getEssaySubmissionDetails) as they are used in child components now
+  startChatSession,
+  sendChatMessage,
+  startSimulationSession,
+  sendSimulationMessage,
+  getUserAchievements,
+  // Mock Test API Functions
+  getMockTests,
+  startMockTest,
+  getMockTestSection,
+  submitMockTestSection,
+  completeMockTest,
+  // Vocabulary API Functions (to be added to imports if not already there for other features)
+  getWordLists,
+  getWordsForList,
+  updateUserWordProgress,
+  getUserVocabularySummary,
+  generateExampleSentence,
+  getUserProgressForWords,
+  // Essay API Functions
+  getEssayTopics,
+  submitEssay,
+  getUserEssays,
   getEssaySubmissionDetails,
 } from './services/api';
 import { parseQuestionText } from './utils/dataParser';
