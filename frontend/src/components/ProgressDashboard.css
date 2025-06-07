@@ -68,3 +68,31 @@
   color: #666;
   font-style: italic;
 }
+
+/* Styles for Mock Test Performance Section */
+.mock-test-attempts-list {
+  list-style-type: none; /* Already set by .dashboard-section ul, but can be explicit */
+  padding: 0; /* Reset padding if needed, or use padding-left from .dashboard-section ul */
+}
+
+.mock-test-attempt-item {
+  background-color: #fff; /* Different background from section for emphasis */
+  border: 1px solid #e0e0e0;
+  padding: 10px 15px;
+  margin-bottom: 10px; /* Space between items */
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.mock-test-attempt-item strong {
+  display: block; /* Make title take full width */
+  margin-bottom: 5px;
+  color: #0056b3; /* A slightly darker blue for titles */
+}
+
+.mock-test-attempt-item p {
+  font-size: 0.95em;
+  margin: 3px 0; /* Tighter spacing for details */
+  color: #555; /* Darker text for readability */
+  font-style: normal; /* Override italic from .dashboard-section p if needed */
+}

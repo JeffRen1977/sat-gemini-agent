@@ -1,0 +1,201 @@
+.essay-feedback-container {
+  padding: 25px;
+  font-family: 'Georgia', serif; /* More formal font for feedback */
+  max-width: 850px;
+  margin: 30px auto;
+  background-color: #fdfdfd; /* Slightly off-white */
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+  color: #333;
+}
+
+.feedback-header {
+  text-align: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.feedback-header h2 {
+  color: #2c3e50; /* Dark blue-grey */
+  font-size: 2em;
+  margin-bottom: 5px;
+}
+.feedback-header h3 {
+    color: #555;
+    font-size: 1.2em;
+    font-style: italic;
+    margin-top: 0;
+}
+
+
+.feedback-section {
+  margin-bottom: 25px;
+  padding: 20px;
+  background-color: #fff;
+  border: 1px solid #e9e9e9;
+  border-radius: 6px;
+}
+
+.feedback-section h4 {
+  color: #007bff; /* Primary blue */
+  font-size: 1.4em;
+  margin-top: 0;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #eee;
+}
+
+.overall-score-section h4 {
+  text-align: center;
+  font-size: 1.6em;
+  color: #28a745; /* Green for positive scores */
+}
+
+
+.strengths-section ul, .improvements-section ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.strengths-section li, .improvements-section li {
+  padding: 8px 0;
+  border-bottom: 1px solid #f5f5f5;
+  line-height: 1.6;
+  font-size: 1.05em;
+}
+.strengths-section li:last-child, .improvements-section li:last-child {
+  border-bottom: none;
+}
+
+.strengths-section li::before {
+  content: "✓ "; /* Checkmark for strengths */
+  color: #28a745; /* Green */
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.improvements-section li::before {
+  content: "➢ "; /* Arrow for improvements */
+  color: #dc3545; /* Red */
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.general-comments-section p {
+    font-size: 1.1em;
+    line-height: 1.7;
+    color: #454545;
+}
+
+
+.detailed-categories-section h4 {
+  color: #17a2b8; /* Info blue */
+}
+
+.category-feedback-item {
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.category-feedback-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+
+.category-feedback-item h5 {
+  font-size: 1.2em;
+  color: #343a40; /* Dark grey */
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.category-feedback-item p {
+  font-size: 1em;
+  line-height: 1.6;
+  color: #505050;
+  margin: 0;
+}
+
+.original-essay-section h4 {
+  color: #6c757d; /* Muted grey */
+}
+
+.original-essay-text {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  white-space: pre-wrap; /* Preserves formatting */
+  word-wrap: break-word;
+  font-family: 'Courier New', Courier, monospace; /* Monospace for essay text */
+  font-size: 0.95em;
+  line-height: 1.5;
+  max-height: 300px; /* Scrollable if too long */
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+}
+
+.feedback-actions {
+  margin-top: 30px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.action-button {
+  padding: 12px 25px;
+  font-size: 1.05em;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  border: none;
+  color: white;
+}
+
+.action-button.primary {
+  background-color: #007bff; /* Primary blue */
+}
+.action-button.primary:hover {
+  background-color: #0056b3;
+}
+
+.action-button { /* Default/secondary style */
+  background-color: #6c757d; /* Grey */
+}
+.action-button:hover {
+  background-color: #5a6268;
+  transform: translateY(-2px);
+}
+
+.error-container .error-message {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    border-radius: .25rem;
+}
+
+.raw-feedback-section {
+    margin-top: 20px;
+    background-color: #f1f1f1;
+    padding: 15px;
+    border-radius: 5px;
+}
+.raw-feedback-section h4 {
+    margin-top: 0;
+    color: #333;
+}
+.raw-feedback-section pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 0.9em;
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: #fff;
+    padding: 10px;
+    border: 1px solid #ddd;
+}

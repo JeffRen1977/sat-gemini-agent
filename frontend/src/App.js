@@ -11,20 +11,46 @@ import {
   manageUserProfile,
   getUserProfile,
   assessKnowledge,
-  startChatSession, 
-  sendChatMessage,  
-  startSimulationSession, 
-  sendSimulationMessage,  
-  getUserAchievements     
+  startChatSession,
+  sendChatMessage,
+  startSimulationSession,
+  sendSimulationMessage,
+  getUserAchievements,
+  // Mock Test API Functions
+  getMockTests,
+  startMockTest,
+  getMockTestSection,
+  submitMockTestSection,
+  completeMockTest,
+  // Vocabulary API Functions (to be added to imports if not already there for other features)
+  getWordLists,
+  getWordsForList,
+  updateUserWordProgress,
+  getUserVocabularySummary,
+  generateExampleSentence,
+  getUserProgressForWords,
+  // Essay API Functions
+  getEssayTopics,
+  submitEssay,
+  getUserEssays,
+  getEssaySubmissionDetails,
 } from './services/api';
 import { parseQuestionText } from './utils/dataParser';
 import QuestionDisplay from './components/QuestionDisplay';
+import MockTestList from './components/MockTestList';
+import MockTestPlayer from './components/MockTestPlayer';
 import FeedbackDisplay from './components/FeedbackDisplay';
 import StudyPlanDisplay from './components/StudyPlanDisplay';
+import WordListsDisplay from './components/WordListsDisplay';
+import FlashcardView from './components/FlashcardView';
 import ImageQuestionDisplay from './components/ImageQuestionDisplay';
 import ChatInterface from './components/ChatInterface';
-import SimulationComponent from './components/SimulationComponent'; 
-import ProgressDashboard from './components/ProgressDashboard'; 
+import SimulationComponent from './components/SimulationComponent';
+import ProgressDashboard from './components/ProgressDashboard';
+import EssayTopicsList from './components/EssayTopicsList'; // Import Essay Components
+import EssayEditor from './components/EssayEditor';
+import EssayFeedbackDisplay from './components/EssayFeedbackDisplay';
+import UserEssaysDashboard from './components/UserEssaysDashboard';
 import './App.css';
 
 function App() {
@@ -55,6 +81,25 @@ function App() {
 
   const [showSimulation, setShowSimulation] = useState(false); // NEW: State for simulation visibility
   const [showProgress, setShowProgress] = useState(false);     // NEW: State for progress dashboard visibility
+
+  // --- MOCK TEST STATES ---
+  const [showMockTestList, setShowMockTestList] = useState(false);
+  const [currentMockTest, setCurrentMockTest] = useState(null); // { testId: null }
+  // const [activeMockTestAttemptId, setActiveMockTestAttemptId] = useState(null); // This seems unused, consider removing if MockTestPlayer handles its attemptId internally
+
+  // --- VOCABULARY BUILDER STATES ---
+  const [showVocabularyBuilder, setShowVocabularyBuilder] = useState(false);
+  const [currentWordListId, setCurrentWordListId] = useState(null);
+  const [currentWordListName, setCurrentWordListName] = useState('');
+
+  // --- ESSAY WRITING ASSISTANT STATES ---
+  const [showEssayTopics, setShowEssayTopics] = useState(false);
+  const [showEssayEditor, setShowEssayEditor] = useState(false);
+  const [showEssayFeedback, setShowEssayFeedback] = useState(false);
+  const [showUserEssaysDashboard, setShowUserEssaysDashboard] = useState(false);
+  const [currentEssayTopic, setCurrentEssayTopic] = useState(null); // Selected topic object
+  const [currentEssaySubmissionData, setCurrentEssaySubmissionData] = useState(null); // { feedback, essayText, essayTitle }
+
 
   // --- DB QUESTION GENERATION STATE ---
   const [dbQueryTopic, setDbQueryTopic] = useState('');
@@ -457,17 +502,77 @@ function App() {
         />
       )}
 
+      {/* Mock Test Navigation */}
+      {currentUserId && (
+        <div className="mock-test-navigation">
+          <button onClick={() => {
+            setShowMockTestList(!showMockTestList);
+            setCurrentMockTest(null); // Reset any active test player
+            // Hide other major components if mock test list is shown
+            if (!showMockTestList) {
+              setShowChat(false);
+              setShowSimulation(false);
+              setShowProgress(false);
+            }
+          }} disabled={loading}>
+            {showMockTestList ? 'Hide Mock Tests' : 'View Mock Tests'}
+          </button>
+          <button onClick={() => {
+            setShowVocabularyBuilder(!showVocabularyBuilder);
+            setCurrentWordListId(null); // Reset any active flashcard view
+            // Hide other major components if vocab builder is shown
+            if (!showVocabularyBuilder) {
+              setShowChat(false);
+              setShowSimulation(false);
+              setShowProgress(false);
+              setShowMockTestList(false);
+              setCurrentMockTest(null);
+              setShowEssayTopics(false); // Hide essay components
+              setShowEssayEditor(false);
+              setShowEssayFeedback(false);
+              setShowUserEssaysDashboard(false);
+            }
+          }} disabled={loading}>
+            {showVocabularyBuilder ? 'Hide Vocabulary Builder' : 'Vocabulary Builder'}
+          </button>
+          <button onClick={() => {
+            setShowEssayTopics(!showEssayTopics || showEssayEditor || showEssayFeedback || showUserEssaysDashboard); // Toggle logic: show if any essay view is active, or toggle
+            setShowEssayEditor(false);
+            setShowEssayFeedback(false);
+            setShowUserEssaysDashboard(false);
+            setCurrentEssayTopic(null);
+            setCurrentEssaySubmissionData(null);
+             // Hide other major components
+            if (!showEssayTopics) {
+              setShowChat(false);
+              setShowSimulation(false);
+              setShowProgress(false);
+              setShowMockTestList(false);
+              setCurrentMockTest(null);
+              setShowVocabularyBuilder(false);
+              setCurrentWordListId(null);
+            }
+          }} disabled={loading}>
+            Essay Practice
+          </button>
+        </div>
+      )}
 
-      <h2>Text-Based Practice Questions (AI Generated)</h2>
-      <button onClick={() => fetchNewQuestion('algebra word problems', 'medium', 'multiple_choice')} disabled={loading || !currentUserId}>
-        {loading && !questionText ? 'Generating Math...' : 'Generate Math Question'}
-      </button>
-      <button onClick={() => fetchNewQuestion('reading comprehension', 'hard', 'multiple_choice')} disabled={loading || !currentUserId}>
-        {loading && !questionText ? 'Generating Reading...' : 'Generate Reading Question'}
-      </button>
+      {/* Conditional Rendering for Main Content vs Features */}
+      {currentUserId && !showMockTestList && !currentMockTest && !showVocabularyBuilder && !currentWordListId && !showEssayTopics && !showEssayEditor && !showEssayFeedback && !showUserEssaysDashboard && (
+         // This is the "main" view with regular practice questions, etc.
+         // Only render this if no other major feature component is active.
+        <>
+          <h2>Text-Based Practice Questions (AI Generated)</h2>
+          <button onClick={() => fetchNewQuestion('algebra word problems', 'medium', 'multiple_choice')} disabled={loading || !currentUserId}>
+            {loading && !questionText ? 'Generating Math...' : 'Generate Math Question'}
+          </button>
+          <button onClick={() => fetchNewQuestion('reading comprehension', 'hard', 'multiple_choice')} disabled={loading || !currentUserId}>
+            {loading && !questionText ? 'Generating Reading...' : 'Generate Reading Question'}
+          </button>
 
-      <hr />
-      <h2>Generate Questions from Database (RAG)</h2>
+          <hr />
+          <h2>Generate Questions from Database (RAG)</h2>
       <div className="db-question-section">
         <textarea
           placeholder="Enter topic or keywords to find relevant content in the database (e.g., 'Pythagorean theorem', 'argumentative essays')"
@@ -538,6 +643,133 @@ function App() {
       </button>
 
       {studyPlan && <StudyPlanDisplay studyPlan={studyPlan} />}
+        </>
+      )}
+
+      {/* Mock Test Components */}
+      {currentUserId && showMockTestList && !currentMockTest && (
+        <MockTestList
+          userId={currentUserId}
+          onStartTest={(testId) => {
+            setCurrentMockTest({ testId });
+            setShowMockTestList(false);
+          }}
+        />
+      )}
+      {currentUserId && currentMockTest && (
+        <MockTestPlayer
+          testId={currentMockTest.testId}
+          userId={currentUserId}
+          onCompleteTest={(results) => {
+            setCurrentMockTest(null);
+            setShowMockTestList(true);
+          }}
+          onExitTest={() => {
+            setCurrentMockTest(null);
+            setShowMockTestList(true);
+          }}
+        />
+      )}
+
+      {/* Vocabulary Builder Components */}
+      {currentUserId && showVocabularyBuilder && !currentWordListId && (
+        <WordListsDisplay
+          userId={currentUserId}
+          onSelectList={(listId, listName) => {
+            setCurrentWordListId(listId);
+            setCurrentWordListName(listName || `Word List ${listId}`);
+            setShowVocabularyBuilder(false);
+          }}
+        />
+      )}
+      {currentUserId && currentWordListId && (
+        <FlashcardView
+          listId={currentWordListId}
+          userId={currentUserId}
+          wordListName={currentWordListName}
+          onExit={() => {
+            setCurrentWordListId(null);
+            setCurrentWordListName('');
+            setShowVocabularyBuilder(true);
+          }}
+        />
+      )}
+
+      {/* Essay Writing Assistant Components */}
+      {currentUserId && showEssayTopics && !showEssayEditor && !showEssayFeedback && !showUserEssaysDashboard && (
+        <EssayTopicsList
+          userId={currentUserId}
+          onSelectTopic={(topic) => {
+            setCurrentEssayTopic(topic);
+            setShowEssayEditor(true);
+            setShowEssayTopics(false);
+          }}
+          onStartOpenTopic={() => {
+            setCurrentEssayTopic(null); // No specific topic
+            setShowEssayEditor(true);
+            setShowEssayTopics(false);
+          }}
+        />
+      )}
+      {currentUserId && showEssayEditor && (
+        <EssayEditor
+          userId={currentUserId}
+          selectedTopic={currentEssayTopic}
+          onSubmissionSuccess={(submissionId, feedback, essayText, essayTitle) => {
+            setCurrentEssaySubmissionData({ submissionId, feedback, originalEssayText: essayText, essayTitle });
+            setShowEssayEditor(false);
+            setShowEssayFeedback(true);
+          }}
+          onCancel={() => {
+            setShowEssayEditor(false);
+            setShowEssayTopics(true); // Go back to topics list
+            setCurrentEssayTopic(null);
+          }}
+        />
+      )}
+      {currentUserId && showEssayFeedback && currentEssaySubmissionData && (
+        <EssayFeedbackDisplay
+          feedback={currentEssaySubmissionData.feedback}
+          originalEssayText={currentEssaySubmissionData.originalEssayText}
+          essayTitle={currentEssaySubmissionData.essayTitle}
+          onBackToList={() => { // This could lead to UserEssaysDashboard
+            setShowEssayFeedback(false);
+            setCurrentEssaySubmissionData(null);
+            setShowUserEssaysDashboard(true); // Show the dashboard of all essays
+            setShowEssayTopics(false); // Ensure topics list is hidden
+          }}
+          onWriteAnother={() => {
+            setShowEssayFeedback(false);
+            setCurrentEssaySubmissionData(null);
+            setShowEssayTopics(true); // Go back to topics list to pick another or open topic
+          }}
+        />
+      )}
+       {currentUserId && showUserEssaysDashboard && (
+        <UserEssaysDashboard
+          userId={currentUserId}
+          onSelectEssay={async (submissionId) => {
+            setLoading(true);
+            try {
+              const details = await getEssaySubmissionDetails(currentUserId, submissionId);
+              setCurrentEssaySubmissionData(details); // details should include feedback, essay_text, essay_title
+              setShowUserEssaysDashboard(false);
+              setShowEssayFeedback(true);
+            } catch (err) {
+              console.error("Error fetching submission details:", err);
+              // Handle error, maybe show a notification
+            } finally {
+              setLoading(false);
+            }
+          }}
+          onWriteNewEssay={() => {
+            setShowUserEssaysDashboard(false);
+            setCurrentEssayTopic(null);
+            setShowEssayEditor(true);
+          }}
+        />
+      )}
+
     </div>
   );
 }
