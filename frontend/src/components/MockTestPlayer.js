@@ -260,13 +260,6 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
   }, [timeLeftInSection, currentSectionData, testResults, isSubmitting]);
 
 
-  const handleAnswerChange = (questionTempId, answer) => {
-    setUserAnswers((prevAnswers) => ({
-      ...prevAnswers,
-      [questionTempId]: answer,
-    }));
-  };
-
   if (isLoading && !currentSectionData) { // Show initial loading for the whole test
     return <p className="loading-message">Loading test player...</p>;
   }
