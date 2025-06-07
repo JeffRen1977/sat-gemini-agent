@@ -125,7 +125,7 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
     }
 
     return () => clearInterval(timerId);
-  }, [timeLeftInSection, currentSectionData, testResults, isSubmitting]);
+  }, [timeLeftInSection, currentSectionData, testResults, isSubmitting, handleSubmitSection]); // Added handleSubmitSection
 
 
   const handleAnswerChange = (questionTempId, answer) => {
@@ -180,7 +180,8 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [attemptId, currentSectionOrder, userId, userAnswers, currentSectionData, loadSection, onCompleteTest, isSubmitting]);
+  }, [attemptId, currentSectionOrder, userId, userAnswers, currentSectionData, loadSection, onCompleteTest, isSubmitting, sectionStartTime]); // Added sectionStartTime
+
 
 
   if (isLoading && !currentSectionData) { // Show initial loading for the whole test
