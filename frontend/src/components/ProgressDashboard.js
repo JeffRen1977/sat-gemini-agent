@@ -70,7 +70,7 @@ function ProgressDashboard({ userId, onClose }) {
         ]);
 
         setPerformanceData(performanceSummaryRes.performance_data);
-        // setProgressMetrics(performanceSummaryRes.progress_metrics);
+        setProgressMetrics(performanceSummaryRes.progress_metrics); // Uncommented and assuming it exists
         setAchievements(userAchievementsRes.achievements);
         setMockTestAttempts(mockTestAttemptsRes || []);
         setVocabularySummary(vocabSummaryRes);

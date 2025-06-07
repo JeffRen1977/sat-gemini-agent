@@ -1,6 +1,6 @@
 // sat_gemini_agent/frontend/src/App.js
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react'; // Removed useRef
 import {
   generateQuestion,
   evaluateAnswer,
@@ -11,28 +11,10 @@ import {
   manageUserProfile,
   getUserProfile,
   assessKnowledge,
-  startChatSession,
-  sendChatMessage,
-  startSimulationSession,
-  sendSimulationMessage,
-  getUserAchievements,
-  // Mock Test API Functions
-  getMockTests,
-  startMockTest,
-  getMockTestSection,
-  submitMockTestSection,
-  completeMockTest,
-  // Vocabulary API Functions (to be added to imports if not already there for other features)
-  getWordLists,
-  getWordsForList,
-  updateUserWordProgress,
-  getUserVocabularySummary,
-  generateExampleSentence,
-  getUserProgressForWords,
-  // Essay API Functions
-  getEssayTopics,
-  submitEssay,
-  getUserEssays,
+  // Removed: startChatSession, sendChatMessage, startSimulationSession, sendSimulationMessage, getUserAchievements,
+  // Removed Mock Test API Functions as they are used in child components now
+  // Removed Vocabulary API Functions as they are used in child components now
+  // Removed Essay API Functions (except getEssaySubmissionDetails) as they are used in child components now
   getEssaySubmissionDetails,
 } from './services/api';
 import { parseQuestionText } from './utils/dataParser';
@@ -75,7 +57,7 @@ function App() {
   const [startTime, setStartTime] = useState(null);
 
   // --- IMAGE QUESTION STATES ---
-  const [selectedImages, setSelectedImages] = useState([]);
+  // const [selectedImages, setSelectedImages] = useState([]); // Removed
   const [imageDataUrls, setImageDataUrls] = useState([]);
   const [imageQuestionText, setImageQuestionText] = useState('');
   const [imageAnalysisResults, setImageAnalysisResults] = useState([]);
@@ -113,17 +95,17 @@ function App() {
   const [dbQueryTopic, setDbQueryTopic] = useState('');
 
   // --- EFFECT FOR INITIAL USER LOAD/REGISTRATION ---
-  useEffect(() => {
-    const storedUserId = localStorage.getItem('currentUserId');
-    const storedUsername = localStorage.getItem('currentUsername');
-    if (storedUserId && storedUsername) {
-      setCurrentUserId(parseInt(storedUserId));
-      setUsername(storedUsername);
-      fetchUserProfile(parseInt(storedUserId));
-    } else {
-      console.log("No user found. Please enter a username to start or register.");
-    }
-  }, []);
+  // useEffect(() => { // REMOVED THIS BLOCK
+  //   const storedUserId = localStorage.getItem('currentUserId');
+  //   const storedUsername = localStorage.getItem('currentUsername');
+  //   if (storedUserId && storedUsername) {
+  //     setCurrentUserId(parseInt(storedUserId));
+  //     setUsername(storedUsername);
+  //     fetchUserProfile(parseInt(storedUserId));
+  //   } else {
+  //     console.log("No user found. Please enter a username to start or register.");
+  //   }
+  // }, []);
 
   // --- NEW USER MANAGEMENT FUNCTIONS ---
   const handleUsernameChange = (e) => {
@@ -147,15 +129,15 @@ function App() {
       if (user) {
         setCurrentUserId(user.id);
         setUserProfile(user);
-        localStorage.setItem('currentUserId', user.id);
-        localStorage.setItem('currentUsername', user.username);
+        // localStorage.setItem('currentUserId', user.id); // REMOVED
+        // localStorage.setItem('currentUsername', user.username); // REMOVED
         alert(`Welcome back, ${user.username}!`);
       } else {
         const newUserResponse = await manageUserProfile({ username: username.trim() });
         setCurrentUserId(newUserResponse.user.id);
         setUserProfile(newUserResponse.user);
-        localStorage.setItem('currentUserId', newUserResponse.user.id);
-        localStorage.setItem('currentUsername', newUserResponse.user.username);
+        // localStorage.setItem('currentUserId', newUserResponse.user.id); // REMOVED
+        // localStorage.setItem('currentUsername', newUserResponse.user.username); // REMOVED
         alert(`New user ${newUserResponse.user.username} registered!`);
       }
     } catch (error) {
@@ -373,12 +355,12 @@ function App() {
   const handleImageChange = (event) => {
     const files = Array.from(event.target.files);
     if (files.length === 0) {
-        setSelectedImages([]);
+        // setSelectedImages([]); // Removed
         setImageDataUrls([]);
         return;
     }
 
-    setSelectedImages(files);
+    // setSelectedImages(files); // Removed
     setImageDataUrls([]);
 
     setQuestionText(null);
