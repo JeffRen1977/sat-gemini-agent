@@ -51,6 +51,8 @@ import EssayTopicsList from './components/EssayTopicsList'; // Import Essay Comp
 import EssayEditor from './components/EssayEditor';
 import EssayFeedbackDisplay from './components/EssayFeedbackDisplay';
 import UserEssaysDashboard from './components/UserEssaysDashboard';
+import TimeManagementGuide from './components/TimeManagementGuide';
+import CollegeResourcesGuide from './components/CollegeResourcesGuide'; // Import CollegeResourcesGuide
 import './App.css';
 
 function App() {
@@ -99,6 +101,12 @@ function App() {
   const [showUserEssaysDashboard, setShowUserEssaysDashboard] = useState(false);
   const [currentEssayTopic, setCurrentEssayTopic] = useState(null); // Selected topic object
   const [currentEssaySubmissionData, setCurrentEssaySubmissionData] = useState(null); // { feedback, essayText, essayTitle }
+
+  // --- TIME MANAGEMENT GUIDE STATE ---
+  const [showTimeManagementGuide, setShowTimeManagementGuide] = useState(false);
+
+  // --- COLLEGE RESOURCES GUIDE STATE ---
+  const [showCollegeResourcesGuide, setShowCollegeResourcesGuide] = useState(false);
 
 
   // --- DB QUESTION GENERATION STATE ---
@@ -551,15 +559,60 @@ function App() {
               setCurrentMockTest(null);
               setShowVocabularyBuilder(false);
               setCurrentWordListId(null);
+              setShowTimeManagementGuide(false); // Hide time management guide
             }
           }} disabled={loading}>
             Essay Practice
+          </button>
+          <button onClick={() => {
+            setShowTimeManagementGuide(!showTimeManagementGuide);
+             // Hide other major components
+            if (!showTimeManagementGuide) {
+              setShowChat(false);
+              setShowSimulation(false);
+              setShowProgress(false);
+              setShowMockTestList(false);
+              setCurrentMockTest(null);
+              setShowVocabularyBuilder(false);
+              setCurrentWordListId(null);
+              setShowEssayTopics(false);
+              setShowEssayEditor(false);
+              setShowEssayFeedback(false);
+              setShowUserEssaysDashboard(false);
+              setShowCollegeResourcesGuide(false); // Hide college resources
+            }
+          }} disabled={loading}>
+            Time Management Tips
+          </button>
+          <button onClick={() => {
+            setShowCollegeResourcesGuide(!showCollegeResourcesGuide);
+            // Hide other major components
+            if (!showCollegeResourcesGuide) {
+              setShowChat(false);
+              setShowSimulation(false);
+              setShowProgress(false);
+              setShowMockTestList(false);
+              setCurrentMockTest(null);
+              setShowVocabularyBuilder(false);
+              setCurrentWordListId(null);
+              setShowEssayTopics(false);
+              setShowEssayEditor(false);
+              setShowEssayFeedback(false);
+              setShowUserEssaysDashboard(false);
+              setShowTimeManagementGuide(false);
+            }
+          }} disabled={loading}>
+            College Resources
           </button>
         </div>
       )}
 
       {/* Conditional Rendering for Main Content vs Features */}
-      {currentUserId && !showMockTestList && !currentMockTest && !showVocabularyBuilder && !currentWordListId && !showEssayTopics && !showEssayEditor && !showEssayFeedback && !showUserEssaysDashboard && (
+      {currentUserId &&
+        !showMockTestList && !currentMockTest &&
+        !showVocabularyBuilder && !currentWordListId &&
+        !showEssayTopics && !showEssayEditor && !showEssayFeedback && !showUserEssaysDashboard &&
+        !showTimeManagementGuide && !showCollegeResourcesGuide && (
          // This is the "main" view with regular practice questions, etc.
          // Only render this if no other major feature component is active.
         <>
@@ -766,6 +819,26 @@ function App() {
             setShowUserEssaysDashboard(false);
             setCurrentEssayTopic(null);
             setShowEssayEditor(true);
+          }}
+        />
+      )}
+
+      {/* Time Management Guide Display */}
+      {currentUserId && showTimeManagementGuide && (
+        <TimeManagementGuide
+          onGoBack={() => {
+            setShowTimeManagementGuide(false);
+            // Decide where to go back, e.g., show main buttons or a default view
+            // For simplicity, this just hides the guide. User can then click another main button.
+          }}
+        />
+      )}
+
+      {/* College Resources Guide Display */}
+      {currentUserId && showCollegeResourcesGuide && (
+        <CollegeResourcesGuide
+          onGoBack={() => {
+            setShowCollegeResourcesGuide(false);
           }}
         />
       )}

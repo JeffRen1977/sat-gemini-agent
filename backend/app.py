@@ -692,12 +692,15 @@ def submit_mock_test_section(attempt_id, section_order):
     # Use section title as key, sanitized if necessary
     section_key = current_section.title.lower().replace(" ", "_").replace("-", "_")
 
+    # Get time_taken_seconds_for_section from request, default to 0 if not provided
+    time_taken_for_section = data.get('time_taken_seconds_for_section', 0)
+
     score_details_dict["sections"][section_key] = {
         "score_percentage": round(section_score, 2), # Renamed for clarity
         "correct": num_correct,
-        "total": len(answers),
+        "total": len(answers), # This is the number of questions answered in this submission
         "allotted_time_seconds": current_section.duration_minutes * 60,
-        # "time_taken_seconds": time_taken_for_section, # This would need to be tracked and passed from frontend
+        "time_taken_seconds": time_taken_for_section,
         "feedback_items": detailed_feedback
     }
     attempt.score_details = json.dumps(score_details_dict)

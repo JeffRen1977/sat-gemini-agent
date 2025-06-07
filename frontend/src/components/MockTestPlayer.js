@@ -55,20 +55,25 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
   const [error, setError] = useState(null);
   const [testResults, setTestResults] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sectionStartTime, setSectionStartTime] = useState(null); // For tracking time per section
 
   const loadSection = useCallback(async (targetAttemptId, sectionOrderToLoad) => {
     try {
       setIsLoading(true);
       setError(null);
-      const sectionData = await getMockTestSection(targetAttemptId, sectionOrderToLoad);
+      const sectionDetails = await getMockTestSection(targetAttemptId, sectionOrderToLoad); // Corrected variable name
       setCurrentSectionData({
-        title: sectionData.section_details.title,
-        duration_minutes: sectionData.section_details.duration_minutes,
-        questions: sectionData.questions || [], // Ensure questions is an array
+        title: sectionDetails.section_details.title,
+        duration_minutes: sectionDetails.section_details.duration_minutes,
+        questions: sectionDetails.questions || [],
+        // Storing allotted_time_seconds directly for easier access in results display
+        allotted_time_seconds: sectionDetails.section_details.duration_minutes * 60,
+        total_questions_in_section: (sectionDetails.questions || []).length
       });
-      setTimeLeftInSection(sectionData.section_details.duration_minutes * 60);
+      setTimeLeftInSection(sectionDetails.section_details.duration_minutes * 60);
+      setSectionStartTime(Date.now()); // Record start time for the new section
       setCurrentSectionOrder(sectionOrderToLoad);
-      setUserAnswers({}); // Reset answers for the new section
+      setUserAnswers({});
       setIsLoading(false);
     } catch (err) {
       setError(err.message || `Failed to load section ${sectionOrderToLoad}.`);
@@ -136,16 +141,23 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
     setIsSubmitting(true);
     setError(null);
 
+    const timeTakenSecondsForSection = sectionStartTime ? Math.round((Date.now() - sectionStartTime) / 1000) : 0;
+
     const answersToSubmit = currentSectionData.questions.map(q => ({
-      temp_id: q.temp_id, // Ensure temp_id is included
+      temp_id: q.temp_id,
       question_text: q.question_text,
-      user_answer: userAnswers[q.temp_id] || null, // Send null if unanswered
-      correct_answer_info: q.correct_answer_info, // Send the original correct_answer_info
+      user_answer: userAnswers[q.temp_id] || null,
+      correct_answer_info: q.correct_answer_info,
     }));
 
     try {
-      const submissionResult = await submitMockTestSection(attemptId, currentSectionOrder, userId, answersToSubmit);
-      // Optionally display section feedback here from submissionResult.detailed_feedback
+      const submissionResult = await submitMockTestSection(
+        attemptId,
+        currentSectionOrder,
+        userId,
+        answersToSubmit,
+        timeTakenSecondsForSection // Send time taken for the section
+      );
       console.log("Section submitted:", submissionResult);
 
 
@@ -189,27 +201,42 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
       <div className="test-results-container">
         <h2>Test Completed!</h2>
         <h3>Results:</h3>
-        {testResults.overall_summary && (
-          <div className="overall-summary">
-            <h4>Overall Summary:</h4>
-            <p>Total Correct: {testResults.overall_summary.total_correct} / {testResults.overall_summary.total_questions}</p>
-            <p>Overall Percentage: {testResults.overall_summary.overall_percentage}%</p>
-          </div>
+        {/* Updated to reflect new score_details structure */}
+        {testResults.scaled_overall_score !== undefined && ( // Check for scaled_overall_score first
+            <p>Overall Scaled Score: {testResults.scaled_overall_score}</p>
         )}
-        <h4>Section Scores:</h4>
-        <ul>
-          {Object.entries(testResults).map(([key, value]) => {
-            if (key.startsWith("section_")) {
-              return (
-                <li key={key}>
-                  {currentTestDetails?.sections?.find(s => `section_${s.order}` === key)?.title || key}: {value.score}%
-                  ({value.correct_count}/{value.total_questions} correct)
-                </li>
-              );
+        {testResults.overall_score_percentage !== undefined && (
+             <p>Overall Score: {testResults.overall_score_percentage}% ({testResults.total_correct_overall} / {testResults.total_questions_overall} correct)</p>
+        )}
+
+        <h4>Section Details:</h4>
+        {testResults.sections && Object.entries(testResults.sections).map(([sectionKey, secData]) => {
+            const avgTimePerQ = secData.total > 0 ? secData.time_taken_seconds / secData.total : 0;
+            const recommendedAvgTimePerQ = secData.total > 0 ? secData.allotted_time_seconds / secData.total : 0;
+            const timeDiffPerQ = avgTimePerQ - recommendedAvgTimePerQ;
+            let paceInsight = "";
+            if (secData.total > 0) {
+                 if (timeDiffPerQ > 15) paceInsight = `You were about ${Math.round(timeDiffPerQ)}s slower per question than recommended.`;
+                 else if (timeDiffPerQ < -15) paceInsight = `You were about ${Math.round(Math.abs(timeDiffPerQ))}s faster per question than recommended.`;
+                 else paceInsight = "Your pacing was generally on track for this section.";
             }
-            return null;
-          })}
-        </ul>
+
+            return (
+                <div key={sectionKey} className="section-result-item">
+                    <h5>{sectionKey.replace(/_/g, " ").title()}</h5>
+                    <p>Score: {secData.score_percentage}% ({secData.correct}/{secData.total} correct)</p>
+                    <p>Your time taken: {formatTime(secData.time_taken_seconds || 0)}</p>
+                    <p>Allotted time: {formatTime(secData.allotted_time_seconds || 0)}</p>
+                    {secData.total > 0 && (
+                        <>
+                            <p>Your average time per question: {formatTime(avgTimePerQ)}</p>
+                            <p>Recommended average time per question: {formatTime(recommendedAvgTimePerQ)}</p>
+                            <p className="pace-insight">{paceInsight}</p>
+                        </>
+                    )}
+                </div>
+            );
+        })}
         <button onClick={onExitTest || (() => window.location.reload())} className="action-button">
           View Dashboard or Try Another Test
         </button>
@@ -222,8 +249,9 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
   }
 
   const formatTime = (seconds) => {
+    if (typeof seconds !== 'number' || isNaN(seconds)) return "0:00";
     const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60); // Ensure seconds is an integer
     return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
   };
 

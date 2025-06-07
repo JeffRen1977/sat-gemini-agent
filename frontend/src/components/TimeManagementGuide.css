@@ -1,0 +1,110 @@
+.time-management-guide-container {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 25px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+  color: #444;
+}
+
+.guide-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #007bff; /* Blue accent */
+  padding-bottom: 15px;
+  margin-bottom: 30px;
+}
+
+.guide-header h1 {
+  font-size: 2.2em;
+  color: #007bff; /* Blue accent */
+  margin: 0;
+}
+
+.back-button {
+  background-color: #6c757d; /* Grey */
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.95em;
+  transition: background-color 0.2s ease;
+}
+
+.back-button:hover {
+  background-color: #5a6268; /* Darker grey */
+}
+
+.guide-section {
+  margin-bottom: 35px;
+}
+
+.guide-section h2 {
+  font-size: 1.8em;
+  color: #343a40; /* Dark grey */
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.guide-section ul {
+  list-style-type: none; /* Remove default bullets */
+  padding-left: 0;
+}
+
+.guide-section ul li {
+  margin-bottom: 12px;
+  padding-left: 25px; /* Space for custom bullet */
+  position: relative;
+}
+
+/* Custom bullet points */
+.guide-section ul li::before {
+  content: '✓'; /* Checkmark */
+  color: #28a745; /* Green */
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.guide-section ul ul {
+  margin-top: 8px;
+  padding-left: 20px; /* Indent nested lists */
+}
+
+.guide-section ul ul li::before {
+  content: '➢'; /* Arrow for sub-bullets */
+  color: #007bff; /* Blue */
+}
+
+
+.guide-section strong {
+  color: #2c3e50; /* Darker text for emphasis */
+}
+
+.guide-section p {
+  margin-bottom: 10px;
+  color: #555;
+}
+
+.guide-footer {
+  text-align: center;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.large-back-button {
+  padding: 12px 25px;
+  font-size: 1.1em;
+  background-color: #007bff;
+}
+.large-back-button:hover {
+  background-color: #0056b3;
+}

@@ -154,3 +154,39 @@
 .action-button {
   margin-top: 20px;
 }
+
+/* Styles for Section Result Item in Test Results */
+.section-result-item {
+  background-color: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 15px;
+  margin-top: 15px;
+  text-align: left; /* Align text to left for readability */
+}
+
+.section-result-item h5 {
+  font-size: 1.2em;
+  color: #0056b3; /* Darker blue for section titles */
+  margin-top: 0;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 5px;
+}
+
+.section-result-item p {
+  font-size: 0.95em;
+  color: #444;
+  margin: 5px 0;
+  line-height: 1.5;
+}
+
+.pace-insight {
+  font-style: italic;
+  color: #555;
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #eef7ff; /* Light blue background for insight */
+  border-left: 3px solid #007bff; /* Blue accent border */
+  border-radius: 0 4px 4px 0;
+}
