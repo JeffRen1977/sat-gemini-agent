@@ -27,31 +27,7 @@ class GeminiService:
 
 
     def generate_sat_question(self, topic, difficulty="medium", question_type="multiple_choice", user_knowledge_level={}):
-        READING_QUESTION_EXAMPLE = """
-        ---BEGIN PASSAGE---
-        The phenomenon of bioluminescence, the production of light by living organisms, is widespread in nature, particularly in marine environments. From the twinkling plankton in the ocean's surface to the deep-sea anglerfish with its glowing lure, bioluminescence serves various ecological functions, including attracting prey, defending against predators, and even communicating with conspecifics. While the chemical reactions involved vary among species, they generally involve a light-emitting molecule (luciferin) and an enzyme (luciferase) that catalyzes the reaction, consuming oxygen and ATP to produce light. This cold light, emitting less than 20% heat, is remarkably efficient compared to incandescent bulbs, which lose most energy as heat. The evolutionary pressures that led to such diverse and efficient light-producing mechanisms highlight the adaptive power of natural selection in response to environmental challenges.
-        ---END PASSAGE---
-
-        Question: Based on the passage, which of the following is NOT a function of bioluminescence mentioned in the text?
-        A) Defense against predators
-        B) Navigation in dark environments
-        C) Attraction of prey
-        D) Communication with other organisms of the same species
-        Correct Answer: B
-        Explanation: The passage explicitly mentions "attracting prey, defending against predators, and even communicating with conspecifics" as ecological functions. Navigation is not mentioned.
-        """
-
-        GENERAL_EXAMPLE_FORMAT = """
-        Question: [Your question text here]
-        A) Option A
-        B) Option B
-        C) Option C
-        D) Option D
-        Correct Answer: [Correct option letter or value]
-        Explanation: [Detailed explanation]
-        """
-
-                # Adaptive difficulty logic (Step 6)
+        # Adaptive difficulty logic (Step 6)
         adjusted_difficulty = difficulty
         if user_knowledge_level:
             # Example: Adjust difficulty based on a specific topic's knowledge level
@@ -72,25 +48,54 @@ class GeminiService:
         
         knowledge_context = f"Student's current knowledge level: {json.dumps(user_knowledge_level)}. Adjust difficulty accordingly." if user_knowledge_level else ""
 
-
+        # MODIFIED: Changed prompt to request JSON output directly
         prompt = f"""
         Generate a {adjusted_difficulty} difficulty SAT-style {question_type} question on the topic of {topic}. {knowledge_context}
         
         **IMPORTANT:**
-        - If the question_type is 'reading_comprehension', you MUST provide a short passage FIRST. The passage must be enclosed between '---BEGIN PASSAGE---' and '---END PASSAGE---'.
-        - Then, after the passage, provide the multiple-choice question, followed by options, correct answer, and explanation.
-        - For math questions, include necessary numbers and context.
-        - For multiple-choice questions, provide 4 options (A, B, C, D) and clearly indicate the correct answer.
+        - The entire response MUST be a single JSON object.
+        - If the question_type is 'reading_comprehension', include a 'passage' field with the passage text. If not, set 'passage' to null.
+        - Provide 'question_text', an array of 'options' (A, B, C, D as strings), 'correct_answer_info' (an object with 'answer' (the correct option string) and 'explanation' (detailed text)).
+        - For math questions, include necessary numbers and context within 'question_text'.
 
-        EXAMPLE_FORMAT:
-        {GENERAL_EXAMPLE_FORMAT}
-
-        If the topic is 'reading comprehension' and question_type is 'multiple_choice',
-        adhere strictly to this example structure, including the specific delimiters for the passage:
-        {READING_QUESTION_EXAMPLE}
+        EXAMPLE JSON FORMAT:
+        ```json
+        {{
+            "passage": "---BEGIN PASSAGE---\\nThe phenomenon of bioluminescence, the production of light by living organisms, is widespread in nature, particularly in marine environments. From the twinkling plankton in the ocean's surface to the deep-sea anglerfish with its glowing lure, bioluminescence serves various ecological functions, including attracting prey, defending against predators, and even communicating with conspecifics. While the chemical reactions involved vary among species, they generally involve a light-emitting molecule (luciferin) and an enzyme (luciferase) that catalyzes the reaction, consuming oxygen and ATP to produce light. This cold light, emitting less than 20% heat, is remarkably efficient compared to incandescent bulbs, which lose most energy as heat. The evolutionary pressures that led to such diverse and efficient light-producing mechanisms highlight the adaptive power of natural selection in response to environmental challenges.\\n---END PASSAGE---",
+            "question_text": "Based on the passage, which of the following is NOT a function of bioluminescence mentioned in the text?",
+            "options": [
+                "A) Defense against predators",
+                "B) Navigation in dark environments",
+                "C) Attraction of prey",
+                "D) Communication with other organisms of the same species"
+            ],
+            "correct_answer_info": {{
+                "answer": "B) Navigation in dark environments",
+                "explanation": "The passage explicitly mentions 'attracting prey, defending against predators, and even communicating with conspecifics' as ecological functions. Navigation is not mentioned."
+            }}
+        }}
+        ```
+        Ensure the output is valid JSON, enclosed in triple backticks, and contains ONLY the JSON.
         """
         response = self.text_model.generate_content(prompt)
-        return response.text
+        text_response = response.text
+        
+        # Extract JSON from triple backticks
+        if text_response.startswith("```json") and text_response.endswith("```"):
+            json_string = text_response[7:-3].strip()
+        else:
+            json_string = text_response.strip()
+
+        # Clean JSON string to remove invalid characters
+        json_string = _clean_json_string(json_string)
+
+        try:
+            return json.loads(json_string)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from Gemini for question generation: {e}")
+            print(f"Raw Gemini response: {text_response}")
+            # Return an error object that the app.py can handle
+            return {"error": "Failed to parse AI question response.", "details": str(e), "raw_response": text_response}
 
 
     def evaluate_and_explain(self, question, user_answer, correct_answer_info):
@@ -217,7 +222,7 @@ class GeminiService:
 
         --- Instructions ---
         1. Analyze the performance data and knowledge level to identify strengths and weaknesses.
-        2. Tailor the plan to the user's learning goals and preferred learning style. Specifically, for 'suggested_resource_types', select from "video tutorial", "interactive exercise", "diagrams", "text-based explanation", "audio explanation", "practice passages", "flashcards". Prioritize resource types that align with the user's '{learning_style}' learning style, but also suggest a variety.
+        2. Tailor the plan to the user's learning goals and preferred learning style. Specifically, for 'suggested_resource_types', select from "video tutorial", "interactive exercises", "diagrams", "text-based explanation", "audio explanation", "practice passages", "flashcards". Prioritize resource types that align with the user's '{learning_style}' learning style, but also suggest a variety.
         3. Provide specific, actionable recommendations.
         4. Focus on areas marked as 'needs practice' or where accuracy is low.
         5. For `recommended_topics`, each item should be an object with `topic_name`, a concise `reason` (linking to performance or knowledge level), `suggested_resource_types` (an array of strings), and `target_difficulty` ("easy", "medium", "hard").
@@ -382,6 +387,7 @@ class GeminiService:
 
         knowledge_context = f"Student's current knowledge level: {json.dumps(user_knowledge_level)}. Adjust difficulty accordingly." if user_knowledge_level else ""
 
+        # MODIFIED: Changed prompt to request JSON output directly
         prompt = f"""
         You are an expert SAT question generator.
         Create a {adjusted_difficulty} difficulty SAT-style {question_type} question based on the following context:
@@ -394,22 +400,50 @@ class GeminiService:
         {knowledge_context}
         
         **IMPORTANT:**
-        - If the question_type is 'reading_comprehension', you MUST use the provided context as the passage, formatted within '---BEGIN PASSAGE---' and '---END PASSAGE---'.
-        - For multiple-choice questions, provide 4 options (A, B, C, D) and clearly indicate the correct answer and a detailed explanation.
+        - The entire response MUST be a single JSON object.
+        - If the question_type is 'reading_comprehension', you MUST use the provided context as the passage, formatted within 'passage' field.
+        - Provide 'question_text', an array of 'options' (A, B, C, D as strings), 'correct_answer_info' (an object with 'answer' (the correct option string) and 'explanation' (detailed text)).
+        - For math questions, include necessary numbers and context within 'question_text'.
 
-        EXAMPLE FORMAT:
-        Question: [Your question text here]
-        A) Option A
-        B) Option B
-        C) Option C
-        D) Option D
-        Correct Answer: [Correct option letter or value]
-        Explanation: [Detailed explanation]
+        EXAMPLE JSON FORMAT:
+        ```json
+        {{
+            "passage": "Example passage text here...",
+            "question_text": "Based on the passage, what is the main idea?",
+            "options": [
+                "A) Option A",
+                "B) Option B",
+                "C) Option C",
+                "D) Option D"
+            ],
+            "correct_answer_info": {{
+                "answer": "A) Option A",
+                "explanation": "Detailed explanation here."
+            }}
+        }}
+        ```
+        If the question_type is not 'reading_comprehension', set 'passage' to null.
 
-        Ensure the output is in the specified format.
+        Ensure the output is valid JSON, enclosed in triple backticks, and contains ONLY the JSON.
         """
         response = self.text_model.generate_content(prompt)
-        return response.text
+        text_response = response.text
+        
+        # Extract JSON from triple backticks
+        if text_response.startswith("```json") and text_response.endswith("```"):
+            json_string = text_response[7:-3].strip()
+        else:
+            json_string = text_response.strip()
+
+        # Clean JSON string to remove invalid characters
+        json_string = _clean_json_string(json_string)
+
+        try:
+            return json.loads(json_string)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from Gemini for RAG question generation: {e}")
+            print(f"Raw Gemini response: {text_response}")
+            return {"error": "Failed to parse AI RAG question response.", "details": str(e), "raw_response": text_response}
 
     # NEW METHOD: start_chat_session
     def start_chat_session(self, user_id: int, user_profile: dict):
@@ -554,12 +588,6 @@ class GeminiService:
         For the term "{term}", please generate one clear, concise, and contextually relevant example sentence
         that an SAT student would find helpful for understanding its usage.
 
-        The sentence should:
-        1. Clearly demonstrate the meaning of the term.
-        2. Be grammatically correct and well-structured.
-        3. Be of a style and complexity appropriate for an SAT student.
-        4. Avoid overly obscure or niche contexts unless the term itself is niche.
-
         Example for "ephemeral":
         "The joy of the unexpected holiday was ephemeral, lasting only a day before responsibilities returned."
 
@@ -621,9 +649,9 @@ class GeminiService:
         2.  `strengths`: An array of strings listing key strengths of the essay.
         3.  `areas_for_improvement`: An array of strings listing key areas where the essay could be improved.
         4.  `detailed_feedback`: An array of objects, where each object represents a scoring category. Each object should have:
-            *   `category`: The name of the scoring category (e.g., "Reading/Understanding", "Analysis", "Development/Support", "Organization/Cohesion", "Language Use", "Grammar, Usage, & Mechanics").
-            *   `score`: A score for that category (e.g., "Good", "Needs Improvement", or a numeric score like "4/6").
-            *   `comment`: Specific feedback for that category.
+            * `category`: The name of the scoring category (e.g., "Reading/Understanding", "Analysis", "Development/Support", "Organization/Cohesion", "Language Use", "Grammar, Usage, & Mechanics").
+            * `score`: A score for that category (e.g., "Good", "Needs Improvement", or a numeric score like "4/6").
+            * `comment`: Specific feedback for that category.
         5.  `general_comments`: A brief overall summary or concluding remarks.
 
         Example of the desired JSON structure:

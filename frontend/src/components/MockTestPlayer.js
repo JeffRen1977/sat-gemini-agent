@@ -1,3 +1,5 @@
+// frontend/src/components/MockTestPlayer.js
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { startMockTest, getMockTestSection, submitMockTestSection, completeMockTest } from '../services/api';
 import './MockTestPlayer.css'; // Create this CSS file for styling
@@ -183,6 +185,59 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
   }, [attemptId, currentSectionOrder, userId, userAnswers, currentSectionData, loadSection, onCompleteTest, isSubmitting, sectionStartTime]); // Added sectionStartTime
 
 
+  // Initialization
+  useEffect(() => {
+    const initializeTest = async () => {
+      if (!testId || !userId) {
+        setError("Test ID or User ID is missing.");
+        setIsLoading(false);
+        return;
+      }
+      try {
+        setIsLoading(true);
+        const startData = await startMockTest(testId, userId);
+        setAttemptId(startData.attempt_id);
+        setCurrentTestDetails(startData.first_section.mock_test); // Assuming mock_test details are nested if needed
+
+        if (startData.first_section && startData.first_section.order) {
+          await loadSection(startData.attempt_id, startData.first_section.order);
+        } else {
+          setError("Test has no sections or first section order is invalid.");
+        }
+      } catch (err) {
+        setError(err.message || "Failed to start the mock test.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    initializeTest();
+  }, [testId, userId, loadSection]);
+
+  // Timer Logic
+  useEffect(() => {
+    if (timeLeftInSection <= 0 || !currentSectionData || testResults) {
+      return () => {}; // No cleanup needed or already completed
+    }
+
+    const timerId = setInterval(() => {
+      setTimeLeftInSection((prevTime) => prevTime - 1);
+    }, 1000);
+
+    if (timeLeftInSection === 1 && !isSubmitting) { // Submit a second before it hits 0 to avoid race conditions
+        console.log("Time up! Submitting section...");
+        handleSubmitSection(true); // autoSubmit = true
+    }
+
+    // REMOVED handleSubmitSection from this dependency array
+  }, [timeLeftInSection, currentSectionData, testResults, isSubmitting]); // Changed dependency array here
+
+
+  const handleAnswerChange = (questionTempId, answer) => {
+    setUserAnswers((prevAnswers) => ({
+      ...prevAnswers,
+      [questionTempId]: answer,
+    }));
+  };
 
   if (isLoading && !currentSectionData) { // Show initial loading for the whole test
     return <p className="loading-message">Loading test player...</p>;

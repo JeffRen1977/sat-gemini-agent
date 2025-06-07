@@ -1,3 +1,5 @@
+# backend/app.py
+
 # sat_gemini_agent/backend/app.py
 import os
 import json
@@ -322,21 +324,24 @@ def generate_question_endpoint():
             user_knowledge_level = json.loads(user.current_knowledge_level)
 
     # NEW: Potentially adjust topic/difficulty based on user_knowledge_level
-    # This is a simple example; more sophisticated logic would go here
+    # This is a simple example; more sophisticated logic will be in gemini_service
     adjusted_difficulty = difficulty
     adjusted_topic = topic
     if user_knowledge_level:
-        # Example: if user is 'beginner' in a topic, maybe force 'easy' difficulty
-        # Or if 'needs practice', select a sub-topic they are weak in.
-        # This will require more advanced logic for dynamic adjustment.
-        # For now, we just pass the knowledge level to the Gemini service (if applicable)
         print(f"User {user_id} knowledge level: {user_knowledge_level}")
 
     try:
-        # You could modify generate_sat_question to accept user_knowledge_level
-        # for more dynamic question generation, but for now, we'll keep it simple.
-        question_text = gemini_service.generate_sat_question(adjusted_topic, adjusted_difficulty, question_type)
-        return jsonify({"question": question_text})
+        # gemini_service.generate_sat_question now returns JSON directly
+        question_data = gemini_service.generate_sat_question(adjusted_topic, adjusted_difficulty, question_type)
+        
+        if "error" in question_data: # Check for errors from GeminiService
+            return jsonify({"error": question_data.get("error"), "details": question_data.get("details", "")}), 500
+
+        # The frontend expects 'question' key. Map the structured data.
+        # This is a simplification. frontend/src/utils/dataParser.js might need to be
+        # removed from frontend parsing, or adjusted if questions from here are special.
+        # For mock tests, we want already parsed structure.
+        return jsonify({"question": question_data}) # Return the parsed dictionary
     except Exception as e:
         app.logger.error(f"Error generating question: {e}")
         return jsonify({"error": str(e)}), 500
@@ -369,14 +374,19 @@ def generate_question_from_db_endpoint():
         if not context_combined.strip():
             return jsonify({"question": "Could not find relevant content in the database to generate a question for this topic. Please try a different query."})
 
-        question_text = gemini_service.generate_sat_question_from_context(
+        # gemini_service.generate_sat_question_from_context now returns JSON directly
+        question_data = gemini_service.generate_sat_question_from_context(
             context_combined,
             query_topic,
             difficulty,
             question_type
             # Potentially pass user_knowledge_level here for more nuanced question generation
         )
-        return jsonify({"question": question_text})
+
+        if "error" in question_data: # Check for errors from GeminiService
+            return jsonify({"error": question_data.get("error"), "details": question_data.get("details", "")}), 500
+
+        return jsonify({"question": question_data})
     except Exception as e:
         app.logger.error(f"Error generating question from DB: {e}")
         return jsonify({"error": f"Failed to generate question from database: {str(e)}"}), 500
@@ -388,7 +398,7 @@ def evaluate_answer_endpoint():
     question_text = data.get('question_text')
     user_answer = data.get('user_answer')
     correct_answer_info = data.get('correct_answer_info')
-    user_id = data.get('user_id') # NEW: Get user_id (important for saving attempt)
+    user_id = data.get('user_id') # NEW: Get user_id
 
     if not all([question_text, user_answer, correct_answer_info]):
         return jsonify({"error": "Missing required fields"}), 400
@@ -600,21 +610,21 @@ def get_mock_test_section(attempt_id, section_order):
         # Consider a bulk generation method in GeminiService if performance is an issue.
         for _ in range(config.get('count', 0)):
             # TODO: Adapt gemini_service to handle different question types if "type" field is used more broadly
-            question_text_blob = gemini_service.generate_sat_question(
+            # MODIFIED: gemini_service.generate_sat_question now returns JSON directly.
+            # No need for json.loads here.
+            question_data = gemini_service.generate_sat_question(
                 topic=config['topic'],
                 difficulty=config['difficulty'],
                 question_type=config.get('type', 'multiple_choice') # Use type from config, default if not present
             )
-            # The output of generate_sat_question is a JSON string, parse it
-            try:
-                question_data = json.loads(question_text_blob)
+            
+            if "error" in question_data: # Check for errors returned by gemini_service
+                app.logger.error(f"Error generating or parsing a question from Gemini: {question_data.get('details')}")
+                questions.append({"error": "Failed to generate or parse a question.", "details": question_data.get('details', '')})
+            else:
                 # Add a temporary ID for client-side tracking before submission
                 question_data['temp_id'] = os.urandom(4).hex()
                 questions.append(question_data)
-            except json.JSONDecodeError:
-                app.logger.error(f"Failed to parse question JSON: {question_text_blob}")
-                # Handle error, maybe skip this question or return an error
-                questions.append({"error": "Failed to generate or parse a question.", "raw_output": question_text_blob})
 
 
         return jsonify({
@@ -767,17 +777,12 @@ def complete_mock_test_attempt(attempt_id):
     # For overall_score, let's use the average of section percentages for now.
     # Real SAT scoring is complex (raw score -> scaled score table).
     # This is a placeholder. A proper scaled score would be better.
-    overall_mock_score = 0
-    if num_sections_scored > 0 :
-        overall_mock_score = round((total_percentage_sum / num_sections_scored),0) # Example: average percentage
-        # To make it look like an SAT score, e.g., out of 800 or 1600
-        # This is a placeholder and not accurate SAT scaling.
-        # If it's a full SAT test, you might scale Math and ERW separately then sum.
-        # For now, let's assume the overall_percentage is a good proxy.
-        # If overall_percentage is out of 100, scale to e.g. 800 for a single section type or 1600 for full test.
-        # This needs to be defined based on test structure.
-        # For simplicity, let's store the percentage as "overall_score_percentage"
-        # and a placeholder "scaled_overall_score"
+    # If it's a full SAT test, you might scale Math and ERW separately then sum.
+    # For now, let's assume the overall_percentage is a good proxy.
+    # If overall_percentage is out of 100, scale to e.g. 800 for a single section type or 1600 for full test.
+    # This needs to be defined based on test structure.
+    # For simplicity, let's store the percentage as "overall_score_percentage"
+    # and a placeholder "scaled_overall_score"
 
     # Update the structure
     final_score_details_structured = {
@@ -794,7 +799,7 @@ def complete_mock_test_attempt(attempt_id):
 
     return jsonify({
         "message": "Mock test attempt completed successfully.",
-        "final_results": final_scores
+        "final_results": final_score_details_structured # Changed 'final_scores' to 'final_score_details_structured'
     }), 200
 
 @app.route('/user/<int:user_id>/mock_test_attempts', methods=['GET'])
@@ -1116,7 +1121,7 @@ def get_user_performance_trends(user_id):
     question_attempts = QuestionAttempt.query.filter_by(user_id=user_id)\
         .order_by(QuestionAttempt.timestamp.asc()).all()
 
-    topic_accuracy_over_time = {} # Key: topic, Value: list of {"date": "YYYY-MM-DD", "accuracy": float}
+    topic_accuracy_over_time = {} # Key: topic, Value: list of {"date": "YYYY-M-DD", "accuracy": float}
 
     # Group by topic and then by date (day)
     # This can be computationally intensive if there are many attempts.
