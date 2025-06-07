@@ -22,7 +22,7 @@ class GeminiService:
         self.vision_model_name = vision_model_name
         self.text_model = genai.GenerativeModel(self.text_model_name)
         self.vision_model = genai.GenerativeModel(self.vision_model_name)
-        # NEW: Store active chat sessions. For production, use a persistent store (e.g., Redis, database).
+        # Store active chat sessions. For production, use a persistent store (e.g., Redis, database).
         self.active_chat_sessions = {} # Maps user_id to Gemini ChatSession objects
 
 
@@ -166,7 +166,6 @@ class GeminiService:
 
 
     def generate_study_plan(self, user_performance_data, user_profile):
-        # ... (unchanged for this step) ...
         learning_goals = user_profile.get('learning_goals', [])
         learning_style = user_profile.get('learning_style_preference', 'any')
         knowledge_level = user_profile.get('current_knowledge_level', {})
@@ -453,8 +452,7 @@ class GeminiService:
         Returns true if session started, false if already exists.
         """
         if user_id in self.active_chat_sessions:
-            # Optionally clear existing chat history if starting a new one
-            # self.active_chat_sessions[user_id] = self.text_model.start_chat(history=[])
+            print(f"Chat session already active for user {user_id}. Reusing existing session.")
             return {"message": "Chat session already active for this user."}
         
         # Prepare system instructions based on user profile
@@ -482,22 +480,32 @@ class GeminiService:
         Do not give direct answers immediately; instead, guide them to the solution with hints or questions.
         If they ask for an explanation for a previously solved problem, explain it step by step.
         """
-        
-        # Start a new chat session with the model and store it
-        self.active_chat_sessions[user_id] = self.text_model.start_chat(
-            history=[],
-            # Gemini 1.5 allows system_instruction in start_chat
-            # For Gemini 2.5 flash, system_instruction might be less direct
-            # and may need to be injected as the first message or implicit in the prompt
-            # For this example, we'll assume it works implicitly via the context provided.
-            # A more robust solution for system instructions would be to bake it into the initial prompt.
-        )
-        # For effective system instruction in continuous chat, it's often best to send a "system" message
-        # or incorporate the persona strongly in the first AI response.
-        # Here, we'll try to establish it in the general prompt for send_chat_message.
 
-        print(f"Started new chat session for user {user_id}")
-        return {"message": "Chat session started successfully!"}
+        try:
+            # Initialize chat history with the system instruction as the first user message.
+            # This is a common pattern for models where 'system_instruction' or 'system' role
+            # is not directly supported in start_chat or the history for setting persona,
+            # especially for older versions or specific model configurations.
+            initial_history = [
+                {
+                    "role": "user", # Using 'user' role for the initial system prompt workaround
+                    "parts": [
+                        {"text": system_instruction_prompt}
+                    ]
+                }
+            ]
+            self.active_chat_sessions[user_id] = self.text_model.start_chat(history=initial_history)
+            
+            print(f"Started new chat session for user {user_id}")
+            return {"message": "Chat session started successfully!"}
+        except genai.APIError as e:
+            # Catch specific Gemini API errors
+            print(f"Gemini API Error starting chat session for user {user_id}: {e}")
+            return {"error": f"Gemini API Error: {str(e)}"}
+        except Exception as e:
+            # Catch any other unexpected errors
+            print(f"Unexpected error starting chat session for user {user_id}: {e}")
+            return {"error": f"Unexpected error starting chat: {str(e)}"}
 
     # NEW METHOD: send_chat_message
     def send_chat_message(self, user_id: int, message: str, user_profile: dict):
@@ -545,8 +553,11 @@ class GeminiService:
             # This maintains the conversation history internally for Gemini.
             response = chat_session.send_message(turn_prompt)
             return {"ai_response": response.text}
+        except genai.APIError as e:
+            print(f"Gemini API Error sending chat message for user {user_id}: {e}")
+            return {"error": f"Failed to get AI response: {str(e)}"}
         except Exception as e:
-            print(f"Error sending chat message for user {user_id}: {e}")
+            print(f"Unexpected error sending chat message for user {user_id}: {e}")
             return {"error": f"Failed to get AI response: {str(e)}"}
         
 
@@ -569,7 +580,8 @@ class GeminiService:
         full_prompt_parts = [{"role": "user", "parts": [system_prompt]}]
         for chat_item in chat_history:
             full_prompt_parts.append({"role": chat_item['role'], "parts": [chat_item['text']]})
-        full_prompt_parts.append({"role": "user", "parts": [user_input]})
+        # Corrected: Closing bracket for `user_input` list
+        full_prompt_parts.append({"role": "user", "parts": [user_input]}) 
 
         try:
             response = self.text_model.generate_content(full_prompt_parts)
@@ -696,3 +708,4 @@ class GeminiService:
         except Exception as e:
             print(f"Unexpected error in analyze_essay: {e}")
             return {"error": "An unexpected error occurred during essay analysis.", "details": str(e)}
+

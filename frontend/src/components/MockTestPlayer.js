@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { startMockTest, getMockTestSection, submitMockTestSection, completeMockTest } from '../services/api';
+import { parseQuestionText } from '../utils/dataParser'; // Import the dataParser utility
 import './MockTestPlayer.css'; // Create this CSS file for styling
 
 // Basic Question Display Component (can be expanded or replaced)
@@ -15,6 +16,15 @@ const QuestionDisplay = ({ question, userAnswer, onAnswerChange }) => {
   // and question.correct_answer_info.answer might be the correct option text
   return (
     <div className="question-container">
+      {/* Display Passage if it exists */}
+      {question.passage && (
+        <div className="reading-passage">
+          <h3>Reading Passage:</h3>
+          <p>{question.passage}</p>
+          <hr />
+        </div>
+      )}
+
       <h4>{question.question_text}</h4>
       {question.options && Array.isArray(question.options) ? (
         <div className="options-container">
@@ -64,13 +74,30 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
       setIsLoading(true);
       setError(null);
       const sectionDetails = await getMockTestSection(targetAttemptId, sectionOrderToLoad); // Corrected variable name
+
+      // Process questions to extract passage and ensure correct structure
+      const processedQuestions = sectionDetails.questions.map(q => {
+        if (q.passage) {
+          // Use parseQuestionText to clean the passage if it contains delimiters
+          const parsed = parseQuestionText(`---BEGIN PASSAGE---${q.passage}---END PASSAGE---\nQuestion: ${q.question_text}`);
+          return {
+            ...q,
+            passage: parsed.passage, // Assign the cleaned passage
+            question_text: parsed.question, // Re-assign clean question text if it was part of raw string
+            options: q.options, // Keep options as they are structured JSON already
+            correct_answer_info: q.correct_answer_info, // Keep correct_answer_info as structured JSON
+          };
+        }
+        return q;
+      });
+
       setCurrentSectionData({
         title: sectionDetails.section_details.title,
         duration_minutes: sectionDetails.section_details.duration_minutes,
-        questions: sectionDetails.questions || [],
+        questions: processedQuestions || [],
         // Storing allotted_time_seconds directly for easier access in results display
         allotted_time_seconds: sectionDetails.section_details.duration_minutes * 60,
-        total_questions_in_section: (sectionDetails.questions || []).length
+        total_questions_in_section: (processedQuestions || []).length
       });
       setTimeLeftInSection(sectionDetails.section_details.duration_minutes * 60);
       setSectionStartTime(Date.now()); // Record start time for the new section
@@ -228,8 +255,9 @@ const MockTestPlayer = ({ testId, userId, onCompleteTest, onExitTest }) => {
         handleSubmitSection(true); // autoSubmit = true
     }
 
-    // REMOVED handleSubmitSection from this dependency array
-  }, [timeLeftInSection, currentSectionData, testResults, isSubmitting]); // Changed dependency array here
+    // REMOVED handleSubmitSection from this dependency array to fix circular dependency
+    return () => clearInterval(timerId);
+  }, [timeLeftInSection, currentSectionData, testResults, isSubmitting]);
 
 
   const handleAnswerChange = (questionTempId, answer) => {

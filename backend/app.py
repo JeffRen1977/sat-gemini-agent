@@ -1,5 +1,3 @@
-# backend/app.py
-
 # sat_gemini_agent/backend/app.py
 import os
 import json
@@ -8,7 +6,7 @@ from dotenv import load_dotenv
 from services.gemini_service import GeminiService
 from flask_cors import CORS
 #from flask_sqlalchemy import Pagination
-from models import db, QuestionAttempt, User, MockTest, MockTestSection, UserMockTestAttempt, Word, WordList, UserWordProgress, EssayTopic, UserEssaySubmission # Import Essay models
+from models import db, QuestionAttempt, User, MockTest, MockTestSection, UserMockTestAttempt, Word, WordList, UserWordProgress, EssayTopic, UserEssaySubmission, word_to_word_list # Import word_to_word_list for join
 import pandas as pd
 from src.retriever import get_retriever
 from datetime import datetime # Make sure datetime is imported
@@ -87,6 +85,17 @@ with app.app_context():
             {"term": "Laconic", "definition": "Using very few words.", "example_sentence": "His laconic reply suggested he wasn't interested.", "difficulty_level": "hard", "lists": [advanced_list]},
             {"term": "Pernicious", "definition": "Having a harmful effect, especially in a gradual or subtle way.", "example_sentence": "The pernicious influence of misinformation can be devastating.", "difficulty_level": "hard", "lists": [advanced_list]},
             {"term": "Quixotic", "definition": "Extremely idealistic; unrealistic and impractical.", "example_sentence": "His quixotic quest to end world hunger was admirable but ultimately futile.", "difficulty_level": "hard", "lists": [advanced_list]},
+            # Adding more words for richer vocabulary
+            {"term": "Conundrum", "definition": "A confusing and difficult problem or question.", "example_sentence": "The issue of balancing economic growth with environmental protection is a global conundrum.", "difficulty_level": "medium", "lists": [common_list]},
+            {"term": "Equivocate", "definition": "Use ambiguous language so as to conceal the truth or avoid committing oneself.", "example_sentence": "When asked about the missing funds, the treasurer began to equivocate, raising suspicions.", "difficulty_level": "hard", "lists": [advanced_list]},
+            {"term": "Fortuitous", "definition": "Happening by chance rather than intention.", "example_sentence": "It was a fortuitous coincidence that they met at the airport after years apart.", "difficulty_level": "medium", "lists": [common_list]},
+            {"term": "Hedonist", "definition": "A person who believes that the pursuit of pleasure is the most important thing in life; a pleasure-seeker.", "example_sentence": "The celebrity lived the life of a hedonist, indulging in every luxury imaginable.", "difficulty_level": "hard", "lists": [advanced_list]},
+            {"term": "Impecunious", "definition": "Having little or no money; penniless.", "example_sentence": "Despite his brilliant ideas, the impecunious inventor struggled to find funding for his projects.", "difficulty_level": "hard", "lists": [advanced_list]},
+            {"term": "Jubilant", "definition": "Feeling or expressing great happiness and triumph.", "example_sentence": "The crowd was jubilant after their team won the championship in overtime.", "difficulty_level": "medium", "lists": [common_list]},
+            {"term": "Knell", "definition": "The sound of a bell, especially when rung solemnly for a death or funeral.", "example_sentence": "The church bells tolled a mournful knell as the procession passed.", "difficulty_level": "hard", "lists": [advanced_list]},
+            {"term": "Luminous", "definition": "Emitting or reflecting light; shining.", "example_sentence": "The moon cast a luminous glow over the calm lake.", "difficulty_level": "medium", "lists": [common_list]},
+            {"term": "Malediction", "definition": "A magical word or phrase uttered with the intention of bringing about evil or destruction; a curse.", "example_sentence": "The witch muttered a malediction under her breath as the hero escaped.", "difficulty_level": "hard", "lists": [advanced_list]},
+            {"term": "Nonchalant", "definition": "Feeling or appearing casually calm and relaxed; not displaying anxiety, interest, or enthusiasm.", "example_sentence": "He gave a nonchalant shrug when asked about the strict new rules.", "difficulty_level": "medium", "lists": [common_list]},
         ]
 
         for data in words_data:
@@ -404,7 +413,11 @@ def evaluate_answer_endpoint():
         return jsonify({"error": "Missing required fields"}), 400
 
     try:
-        feedback = gemini_service.evaluate_and_explain(question_text, user_answer, correct_answer_info)
+        feedback = gemini_service.evaluate_and_explain(
+            question=question_text,
+            user_answer=user_answer,
+            correct_answer_info=correct_answer_info
+        )
 
         # Automatically save the attempt with the user_id
         if user_id:
@@ -592,7 +605,7 @@ def get_mock_test_section(attempt_id, section_order):
 
         # Potentially update attempt status to 'in-progress' if not already
         if attempt.status == 'started':
-            attempt.status = 'in-progress'
+            attempt.status = 'in_progress' # Changed 'started' to 'in_progress' for consistency
             db.session.commit()
 
         section = MockTestSection.query.filter_by(
@@ -670,7 +683,7 @@ def submit_mock_test_section(attempt_id, section_order):
         # This assumes 'correct_answer_info' contains what evaluate_and_explain expects,
         # which might be the full "correct_answer_info" part of the question JSON.
         feedback = gemini_service.evaluate_and_explain(
-            question_text=answer_submission['question_text'],
+            question=answer_submission['question_text'],
             user_answer=answer_submission['user_answer'],
             correct_answer_info=answer_submission['correct_answer_info']
         )
@@ -799,7 +812,7 @@ def complete_mock_test_attempt(attempt_id):
 
     return jsonify({
         "message": "Mock test attempt completed successfully.",
-        "final_results": final_score_details_structured # Changed 'final_scores' to 'final_score_details_structured'
+        "final_results": final_score_details_structured
     }), 200
 
 @app.route('/user/<int:user_id>/mock_test_attempts', methods=['GET'])
@@ -850,8 +863,8 @@ def get_words_in_list(list_id):
     word_list = WordList.query.get_or_404(list_id)
 
     try:
-        # Using Flask-SQLAlchemy's paginate method on the relationship query
-        paginated_words = word_list.words.paginate(page=page, per_page=per_page, error_out=False)
+        # Corrected: paginate on the query result of the join
+        paginated_words = db.session.query(Word).join(word_to_word_list).filter(word_to_word_list.c.word_list_id == list_id).paginate(page=page, per_page=per_page, error_out=False)
 
         words_data = [word.to_dict() for word in paginated_words.items]
 
@@ -974,6 +987,75 @@ def get_user_progress_for_words_batch(user_id):
     except Exception as e:
         app.logger.error(f"Error fetching batch word progress for user {user_id}: {e}")
         return jsonify({"error": str(e)}), 500
+
+# NEW ENDPOINT: Add words to a specific word list
+@app.route('/words/add_to_list', methods=['POST'])
+def add_words_to_list():
+    data = request.json
+    word_list_id = data.get('word_list_id')
+    # Expecting a list of dictionaries, each with 'term', 'definition', and optional 'difficulty_level'
+    new_words_data = data.get('words') 
+
+    if not word_list_id or not new_words_data or not isinstance(new_words_data, list):
+        return jsonify({"error": "word_list_id and a list of words (term, definition) are required"}), 400
+
+    word_list = WordList.query.get(word_list_id)
+    if not word_list:
+        return jsonify({"error": "Word list not found"}), 404
+
+    added_words_info = []
+    for word_data in new_words_data:
+        term = word_data.get('term')
+        definition = word_data.get('definition')
+        difficulty_level = word_data.get('difficulty_level', 'medium') # Default difficulty
+
+        if not term or not definition:
+            added_words_info.append({"error": "Skipping word due to missing term or definition", "data": word_data})
+            continue
+
+        existing_word = Word.query.filter_by(term=term).first()
+        if existing_word:
+            # If word already exists, just add it to the list if not already there
+            if existing_word not in word_list.words:
+                word_list.words.append(existing_word)
+                added_words_info.append({"message": f"Added existing word '{term}' to list {word_list.name}", "word": existing_word.to_dict()})
+            else:
+                added_words_info.append({"message": f"Word '{term}' already in list {word_list.name}", "word": existing_word.to_dict()})
+            continue
+
+        # Generate example sentence if not provided
+        example_sentence = word_data.get('example_sentence')
+        if not example_sentence:
+            try:
+                generated_sentence = gemini_service.generate_example_sentence_for_word(term)
+                if "Could not generate" in generated_sentence:
+                    app.logger.warning(f"Could not auto-generate sentence for {term}: {generated_sentence}")
+                    example_sentence = f"Example sentence for '{term}' could not be generated."
+                else:
+                    example_sentence = generated_sentence
+            except Exception as e:
+                app.logger.error(f"Error during sentence generation for {term}: {e}")
+                example_sentence = f"Example sentence for '{term}' could not be generated due to an error."
+
+
+        new_word = Word(
+            term=term,
+            definition=definition,
+            example_sentence=example_sentence,
+            difficulty_level=difficulty_level
+        )
+        db.session.add(new_word)
+        word_list.words.append(new_word) # Add new word to the list
+        added_words_info.append({"message": f"Added new word '{term}' to list {word_list.name}", "word": new_word.to_dict()})
+
+    try:
+        db.session.commit()
+        return jsonify({"message": "Words processed successfully", "results": added_words_info}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error adding words to list {word_list_id}: {e}")
+        return jsonify({"error": str(e), "results": added_words_info}), 500
+
 
 # Essay Writing Assistant Endpoints
 
@@ -1211,3 +1293,4 @@ def get_user_strengths_weaknesses(user_id):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
