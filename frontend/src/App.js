@@ -13,8 +13,6 @@ import {
   assessKnowledge,
   startChatSession,
   sendChatMessage,
-  startSimulationSession,
-  sendSimulationMessage,
   getUserAchievements,
   // Mock Test API Functions
   getMockTests,
@@ -45,7 +43,6 @@ import WordListsDisplay from './components/WordListsDisplay';
 import FlashcardView from './components/FlashcardView';
 import ImageQuestionDisplay from './components/ImageQuestionDisplay';
 import ChatInterface from './components/ChatInterface';
-import SimulationComponent from './components/SimulationComponent';
 import ProgressDashboard from './components/ProgressDashboard';
 import EssayTopicsList from './components/EssayTopicsList'; // Import Essay Components
 import EssayEditor from './components/EssayEditor';
@@ -81,7 +78,6 @@ function App() {
   const [imageAnalysisResults, setImageAnalysisResults] = useState([]);
 
 
-  const [showSimulation, setShowSimulation] = useState(false); // NEW: State for simulation visibility
   const [showProgress, setShowProgress] = useState(false);     // NEW: State for progress dashboard visibility
 
   // --- MOCK TEST STATES ---
@@ -477,9 +473,6 @@ function App() {
           <button onClick={() => setShowChat(!showChat)} disabled={loading}>
             {showChat ? 'Hide AI Tutor' : 'Chat with AI Tutor'}
           </button>
-          <button onClick={() => setShowSimulation(!showSimulation)} disabled={loading}>
-            {showSimulation ? 'Hide Simulation' : 'Start Simulated Practice'}
-          </button>
           <button onClick={() => setShowProgress(!showProgress)} disabled={loading}>
             {showProgress ? 'Hide Progress' : 'View Progress & Achievements'}
           </button>
@@ -493,13 +486,6 @@ function App() {
           userId={currentUserId}
           userProfile={userProfile}
           onClose={() => setShowChat(false)}
-        />
-      )}
-
-      {showSimulation && currentUserId && (
-        <SimulationComponent
-          userId={currentUserId}
-          onClose={() => setShowSimulation(false)}
         />
       )}
 
@@ -519,7 +505,6 @@ function App() {
             // Hide other major components if mock test list is shown
             if (!showMockTestList) {
               setShowChat(false);
-              setShowSimulation(false);
               setShowProgress(false);
             }
           }} disabled={loading}>
@@ -531,7 +516,6 @@ function App() {
             // Hide other major components if vocab builder is shown
             if (!showVocabularyBuilder) {
               setShowChat(false);
-              setShowSimulation(false);
               setShowProgress(false);
               setShowMockTestList(false);
               setCurrentMockTest(null);
@@ -553,7 +537,6 @@ function App() {
              // Hide other major components
             if (!showEssayTopics) {
               setShowChat(false);
-              setShowSimulation(false);
               setShowProgress(false);
               setShowMockTestList(false);
               setCurrentMockTest(null);
@@ -569,7 +552,6 @@ function App() {
              // Hide other major components
             if (!showTimeManagementGuide) {
               setShowChat(false);
-              setShowSimulation(false);
               setShowProgress(false);
               setShowMockTestList(false);
               setCurrentMockTest(null);
@@ -589,7 +571,6 @@ function App() {
             // Hide other major components
             if (!showCollegeResourcesGuide) {
               setShowChat(false);
-              setShowSimulation(false);
               setShowProgress(false);
               setShowMockTestList(false);
               setCurrentMockTest(null);
