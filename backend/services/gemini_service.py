@@ -543,3 +543,128 @@ class GeminiService:
         except Exception as e:
             print(f"Error in simulate_interview: {e}")
             return {"error": f"Failed to run simulation: {str(e)}"}
+
+    def generate_example_sentence_for_word(self, term: str):
+        """
+        Generates a concise and contextually relevant example sentence for the given term,
+        suitable for SAT vocabulary learning.
+        """
+        prompt = f"""
+        You are an expert lexicographer specializing in SAT vocabulary.
+        For the term "{term}", please generate one clear, concise, and contextually relevant example sentence
+        that an SAT student would find helpful for understanding its usage.
+
+        The sentence should:
+        1. Clearly demonstrate the meaning of the term.
+        2. Be grammatically correct and well-structured.
+        3. Be of a style and complexity appropriate for an SAT student.
+        4. Avoid overly obscure or niche contexts unless the term itself is niche.
+
+        Example for "ephemeral":
+        "The joy of the unexpected holiday was ephemeral, lasting only a day before responsibilities returned."
+
+        Term: "{term}"
+        Example Sentence:
+        """
+        try:
+            response = self.text_model.generate_content(prompt)
+            # Assuming the response text directly contains the sentence.
+            # Add error handling or more sophisticated parsing if Gemini's output is more complex.
+            sentence = response.text.strip()
+
+            # Basic validation or cleaning if needed
+            if not sentence or len(sentence) < 5: # Arbitrary minimum length
+                raise ValueError("Generated sentence is too short or empty.")
+
+            return sentence
+        except Exception as e:
+            print(f"Error generating example sentence for '{term}': {e}")
+            # Fallback or re-throw as appropriate
+            return f"Could not generate an example sentence for '{term}' at this time. Error: {str(e)}"
+
+    def analyze_essay(self, essay_text: str, essay_prompt_description: str = ""):
+        """
+        Analyzes an essay based on SAT scoring criteria using Gemini.
+        Returns structured feedback in JSON format.
+        """
+        prompt_context = f"The essay was written in response to the following prompt/topic: '{essay_prompt_description}'" if essay_prompt_description else "The essay was self-prompted or the specific prompt is not provided."
+
+        json_feedback_structure_example = """
+        {
+          "overall_score": "4/6",
+          "strengths": ["Clear thesis statement.", "Good use of examples related to the prompt."],
+          "areas_for_improvement": ["Needs more in-depth analysis in paragraph 2.", "Some awkward phrasing and grammatical errors."],
+          "detailed_feedback": [
+            {"category": "Reading/Understanding", "score": "5/6", "comment": "Student demonstrates a good understanding of the prompt/passage."},
+            {"category": "Analysis", "score": "4/6", "comment": "The analysis is on the right track but could be more profound. For instance, consider the counterarguments or alternative interpretations."},
+            {"category": "Development/Support", "score": "3/6", "comment": "While examples are provided, they need to be more thoroughly explained and connected back to the main thesis. Some claims lack sufficient evidence."},
+            {"category": "Organization/Cohesion", "score": "4/6", "comment": "The essay follows a logical structure, but transitions between paragraphs could be smoother to improve flow."},
+            {"category": "Language Use", "score": "3/6", "comment": "Vocabulary is generally appropriate, but there are instances of imprecise word choice. Sentence structures could be more varied."},
+            {"category": "Grammar, Usage, & Mechanics", "score": "3/6", "comment": "Several grammatical errors (e.g., subject-verb agreement, tense consistency) and some punctuation mistakes were noted. Careful proofreading is recommended."}
+          ],
+          "general_comments": "This is a solid attempt that addresses the core aspects of the prompt. To improve, focus on deepening the analysis, providing more robust support for your claims, and refining language precision and grammatical accuracy."
+        }
+        """
+
+        prompt = f"""
+        You are an expert SAT Essay Grader.
+        Please evaluate the following student essay based on standard SAT essay scoring criteria.
+        {prompt_context}
+
+        Student's Essay:
+        ---BEGIN ESSAY---
+        {essay_text}
+        ---END ESSAY---
+
+        Provide your feedback in a structured JSON format. The JSON object should include:
+        1.  `overall_score`: A holistic score (e.g., "4/6" or a numeric value out of 6 or 8, reflecting SAT's typical combined scoring if applicable, but stick to a single dimension like out of 6 for simplicity here).
+        2.  `strengths`: An array of strings listing key strengths of the essay.
+        3.  `areas_for_improvement`: An array of strings listing key areas where the essay could be improved.
+        4.  `detailed_feedback`: An array of objects, where each object represents a scoring category. Each object should have:
+            *   `category`: The name of the scoring category (e.g., "Reading/Understanding", "Analysis", "Development/Support", "Organization/Cohesion", "Language Use", "Grammar, Usage, & Mechanics").
+            *   `score`: A score for that category (e.g., "Good", "Needs Improvement", or a numeric score like "4/6").
+            *   `comment`: Specific feedback for that category.
+        5.  `general_comments`: A brief overall summary or concluding remarks.
+
+        Example of the desired JSON structure:
+        ```json
+        {json_feedback_structure_example}
+        ```
+
+        Focus on providing constructive, actionable feedback that will help the student improve their essay writing skills for the SAT.
+        Ensure the output is a single, valid JSON object enclosed in triple backticks.
+        """
+
+        try:
+            response = self.text_model.generate_content(prompt)
+            text_response = response.text
+
+            # Clean the response to extract JSON
+            if text_response.startswith("```json") and text_response.endswith("```"):
+                json_string = text_response[7:-3].strip()
+            elif text_response.startswith("```") and text_response.endswith("```"): # Handle cases with just ```
+                json_string = text_response[3:-3].strip()
+            else:
+                json_string = text_response.strip()
+
+            json_string = _clean_json_string(json_string) # Remove invalid characters
+
+            # Attempt to parse the JSON
+            feedback_json = json.loads(json_string)
+            return feedback_json
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from Gemini for essay analysis: {e}")
+            print(f"Raw Gemini response: {text_response}")
+            # Fallback: Try to return at least some part of the text if JSON parsing fails
+            return {
+                "error": "Failed to parse AI response as JSON.",
+                "details": str(e),
+                "raw_feedback_text": text_response,
+                "general_comments": "The AI provided feedback, but it was not in the expected structured format. Please review the raw text above. Common issues include overly complex language or unexpected formatting in the essay itself that can confuse the AI's JSON generation.",
+                "overall_score": "N/A",
+                "strengths": [],
+                "areas_for_improvement": []
+            }
+        except Exception as e:
+            print(f"Unexpected error in analyze_essay: {e}")
+            return {"error": "An unexpected error occurred during essay analysis.", "details": str(e)}

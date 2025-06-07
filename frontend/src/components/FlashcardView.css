@@ -1,0 +1,223 @@
+.flashcard-view-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background-color: #f0f2f5; /* Light background for the page */
+  min-height: 80vh;
+}
+
+.flashcard-header {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.flashcard-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.flashcard-header p {
+  margin: 0;
+  color: #555;
+}
+
+.exit-button {
+  background-color: #f44336; /* Red */
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+.exit-button:hover {
+  background-color: #d32f2f;
+}
+
+.flashcard {
+  width: 320px; /* Increased width */
+  height: 220px; /* Increased height */
+  perspective: 1000px;
+  cursor: pointer;
+  margin-bottom: 20px;
+  background-color: transparent; /* Important for perspective */
+}
+
+.flashcard-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-radius: 10px;
+}
+
+.flashcard.flipped .flashcard-inner {
+  transform: rotateY(180deg);
+}
+
+.flashcard-front, .flashcard-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  border-radius: 10px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+}
+
+.flashcard-front {
+  /* Styles for front */
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+  background-color: #f8f9fa; /* Slightly different background for back */
+}
+
+.term {
+  font-size: 2em; /* Larger term */
+  font-weight: bold;
+  color: #333;
+}
+
+.definition, .example-sentence {
+  font-size: 1em; /* Readable definition/example */
+  color: #444;
+  margin-bottom: 10px;
+  text-align: left;
+  width: 100%;
+}
+.definition strong, .example-sentence strong {
+    color: #222;
+}
+
+
+.status-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #007bff;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75em;
+}
+.status-badge.front-status {
+    background-color: #6c757d; /* Grey for front if needed */
+}
+
+
+.status-controls-back {
+    margin-top: 15px;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.generate-sentence-button {
+  background-color: #17a2b8; /* Info blue */
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+  margin-top: 10px;
+}
+.generate-sentence-button:hover {
+  background-color: #138496;
+}
+.generate-sentence-button:disabled {
+  background-color: #ccc;
+}
+
+
+.flashcard-navigation {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 320px; /* Match flashcard width */
+  margin-bottom: 20px;
+}
+
+.flashcard-navigation button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+}
+.flashcard-navigation button:hover {
+  background-color: #0056b3;
+}
+.flashcard-navigation button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.status-update-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 400px; /* Adjust as needed */
+}
+
+.status-update-buttons button {
+  background-color: #28a745; /* Green */
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+.status-update-buttons button:nth-child(2) {
+  background-color: #ffc107; /* Yellow for learning/review */
+  color: #212529;
+}
+.status-update-buttons button:nth-child(3) {
+  background-color: #dc3545; /* Red */
+}
+.status-update-buttons button:hover {
+  opacity: 0.8;
+}
+.status-update-buttons button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.loading-message.small-loading {
+    font-size: 0.9em;
+    color: #777;
+    margin-top: 10px;
+}
+
+.error-message {
+  color: #d9534f;
+  background-color: #f2dede;
+  border: 1px solid #ebccd1;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 10px;
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+}

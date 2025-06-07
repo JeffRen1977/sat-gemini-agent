@@ -1,0 +1,121 @@
+.essay-topics-container {
+  padding: 25px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  max-width: 950px;
+  margin: 30px auto;
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+}
+
+.essay-topics-container h2 {
+  text-align: center;
+  color: #2c3e50; /* Dark blue-grey */
+  margin-bottom: 15px;
+  font-size: 2em;
+}
+
+.topics-intro {
+  text-align: center;
+  color: #555;
+  margin-bottom: 25px;
+  font-size: 1.1em;
+}
+
+.loading-message, .error-message {
+  text-align: center;
+  padding: 20px;
+  border-radius: 6px;
+  font-size: 1.1em;
+}
+
+.loading-message {
+  color: #007bff; /* Primary blue */
+}
+
+.error-message {
+  color: #e74c3c; /* Bright red */
+  background-color: #fdedec;
+  border: 1px solid #f5c6cb;
+}
+
+.open-topic-button {
+  display: block;
+  margin: 0 auto 30px auto;
+  padding: 12px 25px;
+  font-size: 1.1em;
+  color: #fff;
+  background-color: #28a745; /* Green */
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.open-topic-button:hover {
+  background-color: #218838; /* Darker green */
+}
+.open-topic-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+
+.topics-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.topic-item {
+  background-color: #f8f9fa; /* Light grey */
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.topic-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.topic-item.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.topic-item.disabled:hover {
+  transform: none;
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.05);
+}
+
+
+.topic-item h3 {
+  margin-top: 0;
+  color: #007bff; /* Primary blue */
+  margin-bottom: 10px;
+  font-size: 1.3em;
+}
+
+.topic-item .topic-category {
+  font-size: 0.9em;
+  color: #6c757d; /* Muted grey */
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.topic-item .topic-description {
+  font-size: 1em;
+  color: #495057; /* Dark grey */
+  line-height: 1.6;
+}
+
+.login-prompt-essay {
+    text-align: center;
+    color: #777;
+    font-size: 0.95em;
+    margin-top: -20px; /* Pull it closer to the button */
+    margin-bottom: 20px;
+}

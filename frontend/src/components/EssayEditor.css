@@ -1,0 +1,118 @@
+.essay-editor-container {
+  padding: 25px;
+  font-family: 'Arial', sans-serif;
+  max-width: 800px;
+  margin: 30px auto;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.essay-editor-container h2 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.8em;
+}
+
+.selected-topic-prompt {
+  background-color: #e9f7fd; /* Light blue */
+  border: 1px solid #bde0fe; /* Softer blue border */
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 6px;
+}
+
+.selected-topic-prompt strong {
+  color: #0056b3; /* Darker blue for emphasis */
+  display: block;
+  margin-bottom: 8px;
+}
+
+.selected-topic-prompt p {
+  color: #31708f; /* Muted blue text */
+  line-height: 1.6;
+  margin: 0;
+}
+
+.essay-form .form-group {
+  margin-bottom: 20px;
+}
+
+.essay-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #555;
+}
+
+.essay-form input[type="text"],
+.essay-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1em;
+  line-height: 1.5;
+  box-sizing: border-box; /* Important for width and padding */
+}
+
+.essay-form input[type="text"]:focus,
+.essay-form textarea:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  outline: none;
+}
+
+.essay-form textarea {
+  resize: vertical; /* Allow vertical resize, not horizontal */
+}
+
+.error-message.editor-error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  padding: 10px 15px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.editor-actions button {
+  padding: 10px 20px;
+  font-size: 1em;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.cancel-button {
+  background-color: #6c757d; /* Grey */
+  color: white;
+}
+.cancel-button:hover {
+  background-color: #5a6268;
+}
+
+.submit-essay-button {
+  background-color: #007bff; /* Primary blue */
+  color: white;
+}
+.submit-essay-button:hover {
+  background-color: #0056b3;
+}
+
+.submit-essay-button:disabled,
+.cancel-button:disabled {
+  background-color: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
+}

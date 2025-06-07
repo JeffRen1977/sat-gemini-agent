@@ -1,0 +1,74 @@
+.mock-test-list-container {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.mock-test-item {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mock-test-item h3 {
+  margin-top: 0;
+  color: #333;
+}
+
+.mock-test-item p {
+  color: #555;
+  line-height: 1.6;
+}
+
+.mock-test-sections {
+  margin-top: 10px;
+  padding-left: 20px;
+}
+
+.mock-test-sections h4 {
+  margin-bottom: 5px;
+  color: #444;
+}
+
+.mock-test-sections ul {
+  list-style-type: disc;
+  padding-left: 20px;
+  color: #666;
+}
+
+.start-test-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+}
+
+.start-test-button:hover {
+  background-color: #0056b3;
+}
+
+.start-test-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: #d9534f; /* Bootstrap's text-danger color */
+  background-color: #f2dede; /* Bootstrap's bg-danger color (lightened) */
+  border: 1px solid #ebccd1; /* Bootstrap's border-danger color */
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.login-prompt {
+    font-size: 0.9em;
+    color: #777;
+    margin-top: 5px;
+}
